@@ -1,10 +1,10 @@
 # OpenRouter Usage Proxy
 
-A middleware proxy tool that intercepts all API calls to OpenRouter, logs detailed usage information including model, token counts, and costs, and displays this data through a React/Vite web dashboard.
+A transparent middleware proxy that intercepts all API calls to OpenRouter, logs detailed usage information including model, token counts, and costs, and displays this data through a React/Vite web dashboard.
 
 ## Overview
 
-This tool acts as an intermediary between clients and OpenRouter's API, capturing request/response data in real-time while maintaining transparent passthrough for normal API operations.
+This tool acts as a **transparent proxy** between clients and OpenRouter's API. It passes through client requests (including their own API keys) unchanged while capturing request/response data for usage tracking. The proxy itself does NOT require or inject any API key - clients must provide their own OpenRouter API keys.
 
 ### Features
 
@@ -21,9 +21,10 @@ This tool acts as an intermediary between clients and OpenRouter's API, capturin
 ┌─────────────┐      ┌─────────────────┐      ┌──────────────┐
 │   Client    │ ───▶ │  Proxy Server   │ ───▶ │  OpenRouter  │
 │  (Your App) │ ◀─── │  (localhost:3000)│ ◀─── │     API      │
+│ + API Key   │      │  (transparent)   │      │              │
 └─────────────┘      └────────┬────────┘      └──────────────┘
                               │
-                              │ logs
+                              │ logs usage
                               ▼
                      ┌─────────────────┐
                      │  SQLite DB      │
@@ -36,6 +37,8 @@ This tool acts as an intermediary between clients and OpenRouter's API, capturin
                      │ (localhost:5173) │
                      └─────────────────┘
 ```
+
+**Note:** Clients provide their own OpenRouter API keys. The proxy passes through all headers unchanged.
 
 ## Project Structure
 
@@ -78,16 +81,16 @@ openrouter-usage-proxy/
 
 - Node.js 18+
 - npm
-- OpenRouter API key ([Get one here](https://openrouter.ai/keys))
+- OpenRouter API key for your clients ([Get one here](https://openrouter.ai/keys))
 
 ### Installation
 
 1. Clone the repository and navigate to the project directory
 
-2. Set up environment variables:
+2. (Optional) Set up environment variables if you need to customize ports:
    ```bash
    cp .env.example .env
-   # Edit .env and add your OpenRouter API key
+   # Edit .env to customize PORT or VITE_API_URL if needed
    ```
 
 3. Install and start the backend server:
@@ -108,7 +111,7 @@ openrouter-usage-proxy/
 
 ### Using the Proxy
 
-Send API requests to the proxy instead of directly to OpenRouter:
+Send API requests to the proxy instead of directly to OpenRouter. **You must include your own OpenRouter API key** in the Authorization header:
 
 ```bash
 # Instead of: https://openrouter.ai/api/v1/chat/completions
@@ -116,6 +119,7 @@ Send API requests to the proxy instead of directly to OpenRouter:
 
 curl -X POST http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_OPENROUTER_API_KEY" \
   -d '{
     "model": "openai/gpt-3.5-turbo",
     "messages": [{"role": "user", "content": "Hello!"}]
@@ -123,20 +127,21 @@ curl -X POST http://localhost:3000/v1/chat/completions \
 ```
 
 The proxy will:
-1. Forward your request to OpenRouter (with API key injected securely)
+1. Pass through your request to OpenRouter (with your Authorization header unchanged)
 2. Return the response to your client
-3. Log the usage data to the database
+3. Log the usage data (model, tokens, cost) to the database
 4. Display the log in the web dashboard
+
+**Note**: This is a transparent proxy - it does NOT inject its own API key. Each client must provide their own OpenRouter API key.
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `OPENROUTER_API_KEY` | Yes | - | Your OpenRouter API key |
 | `PORT` | No | `3000` | Backend server port |
 | `VITE_API_URL` | No | `http://localhost:3000` | Backend URL for frontend |
 
-**Security Note:** The API key is stored securely on the server and injected into requests by the proxy. It is never exposed to frontend clients.
+**Transparent Proxy:** This proxy does NOT require or use a server-side API key. Clients must provide their own OpenRouter API keys in the `Authorization` header of each request. The proxy passes through all headers unchanged.
 
 ## Service URLs
 

@@ -2,6 +2,9 @@
  * Proxy middleware for OpenRouter API
  * Intercepts requests to /v1/*, proxies them to OpenRouter,
  * and logs usage data from responses
+ *
+ * This is a TRANSPARENT proxy - it passes through the client's Authorization
+ * header unchanged. Clients must provide their own OpenRouter API keys.
  */
 
 import { createProxyMiddleware, responseInterceptor, fixRequestBody } from 'http-proxy-middleware';
@@ -20,7 +23,7 @@ const OPENROUTER_TARGET = 'https://openrouter.ai';
  *
  * Key features:
  * - Proxies /v1/* requests to https://openrouter.ai/api/v1/*
- * - Injects API key from server environment (secure, never exposed to clients)
+ * - Passes through client's Authorization header unchanged (transparent proxy)
  * - Injects usage: { include: true } to get cost data in response
  * - Intercepts responses to extract and log usage data
  * - Uses fixRequestBody for compatibility with body-parser middleware
@@ -40,16 +43,13 @@ export const proxyMiddleware = createProxyMiddleware<Request, Response>({
   on: {
     /**
      * Handle outgoing proxy request
-     * - Injects Authorization header with API key from environment
+     * - Passes through client's Authorization header unchanged (transparent proxy)
      * - Injects usage: { include: true } into request body for cost data
      * - Fixes request body when body-parser middleware runs before proxy
      */
     proxyReq: (proxyReq: ClientRequest, req: Request, res: Response) => {
-      // Inject API key securely from server environment
-      const apiKey = process.env.OPENROUTER_API_KEY;
-      if (apiKey) {
-        proxyReq.setHeader('Authorization', `Bearer ${apiKey}`);
-      }
+      // Note: Client's Authorization header is passed through automatically
+      // by http-proxy-middleware - no server-side API key injection
 
       // Handle requests with JSON body (POST, PUT, PATCH)
       // Inject usage: { include: true } for chat completions to get cost data
