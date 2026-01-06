@@ -1,0 +1,103 @@
+/**
+ * Database connection module for OpenRouter Usage Proxy
+ * Initializes SQLite database with better-sqlite3, enables WAL mode,
+ * and provides CRUD operations for usage logs
+ */
+
+import Database from 'better-sqlite3';
+import path from 'path';
+import { initializeSchema, INSERT_USAGE_LOG, SELECT_ALL_LOGS, SELECT_USAGE_STATS } from './schema.js';
+import type { UsageLog, UsageLogInput, UsageStats } from '../types/index.js';
+
+/**
+ * Database file path - stored in server root directory
+ */
+const DB_PATH = path.join(process.cwd(), 'usage.db');
+
+/**
+ * Database instance
+ * Uses better-sqlite3 for synchronous, fast SQLite operations
+ */
+export const db = new Database(DB_PATH);
+
+/**
+ * Enable WAL (Write-Ahead Logging) mode for better concurrency
+ * WAL mode allows concurrent reads while writing, which is ideal
+ * for our use case of logging requests while querying the dashboard
+ */
+db.pragma('journal_mode = WAL');
+
+/**
+ * Initialize database schema (creates tables and indexes if not exist)
+ */
+initializeSchema(db);
+
+/**
+ * Prepared statement for inserting usage logs
+ * Prepared statements are more efficient for repeated operations
+ */
+const insertStatement = db.prepare(INSERT_USAGE_LOG);
+
+/**
+ * Prepared statement for selecting all logs
+ */
+const selectAllStatement = db.prepare(SELECT_ALL_LOGS);
+
+/**
+ * Prepared statement for getting usage statistics
+ */
+const selectStatsStatement = db.prepare(SELECT_USAGE_STATS);
+
+/**
+ * Insert a new usage log entry into the database
+ *
+ * @param logInput - Usage log data to insert
+ * @returns The inserted log entry with generated id and created_at
+ */
+export function insertLog(logInput: UsageLogInput): UsageLog {
+  const result = insertStatement.run({
+    timestamp: logInput.timestamp,
+    model: logInput.model,
+    prompt_tokens: logInput.prompt_tokens ?? null,
+    completion_tokens: logInput.completion_tokens ?? null,
+    total_tokens: logInput.total_tokens ?? null,
+    cost: logInput.cost ?? null,
+    request_path: logInput.request_path ?? null,
+    status_code: logInput.status_code ?? null,
+  });
+
+  // Return the inserted row by querying it back
+  const insertedRow = db
+    .prepare('SELECT * FROM usage_logs WHERE id = ?')
+    .get(result.lastInsertRowid) as UsageLog;
+
+  return insertedRow;
+}
+
+/**
+ * Get all usage logs from the database
+ * Returns logs ordered by timestamp descending (most recent first)
+ *
+ * @returns Array of usage log entries
+ */
+export function getLogs(): UsageLog[] {
+  return selectAllStatement.all() as UsageLog[];
+}
+
+/**
+ * Get usage statistics from the database
+ * Returns total request count, total tokens, and total cost
+ *
+ * @returns Usage statistics object
+ */
+export function getStats(): UsageStats {
+  return selectStatsStatement.get() as UsageStats;
+}
+
+/**
+ * Close the database connection
+ * Should be called when the application is shutting down
+ */
+export function closeDatabase(): void {
+  db.close();
+}

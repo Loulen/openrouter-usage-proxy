@@ -1,0 +1,39 @@
+# Auto Claude data directory
+.auto-claude/
+.auto-claude-status
+.claude_settings.json
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Package lock files (use separate locks in server/ and client/)
+/package-lock.json
+
+# Temporary files
+*.log
+*.tmp
