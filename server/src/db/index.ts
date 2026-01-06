@@ -4,7 +4,7 @@
  * and provides CRUD operations for usage logs
  */
 
-import Database from 'better-sqlite3';
+import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import { initializeSchema, INSERT_USAGE_LOG, SELECT_ALL_LOGS, SELECT_USAGE_STATS } from './schema.js';
 import type { UsageLog, UsageLogInput, UsageStats } from '../types/index.js';
@@ -18,7 +18,7 @@ const DB_PATH = path.join(process.cwd(), 'usage.db');
  * Database instance
  * Uses better-sqlite3 for synchronous, fast SQLite operations
  */
-export const db = new Database(DB_PATH);
+export const db: DatabaseType = new Database(DB_PATH);
 
 /**
  * Enable WAL (Write-Ahead Logging) mode for better concurrency

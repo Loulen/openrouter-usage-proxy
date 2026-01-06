@@ -80,14 +80,15 @@ app.get('/health', (req: Request, res: Response) => {
 
 /**
  * 4. Proxy Middleware - Forward API requests to OpenRouter
- * Catches all /v1/* requests and proxies them to https://openrouter.ai/api/v1/*
+ * Catches all /openrouter/api/v1/* requests and proxies them to https://openrouter.ai/api/v1/*
  *
  * Features:
- * - Injects Authorization header with API key from environment
+ * - Passes through client's Authorization header (transparent proxy)
  * - Injects usage: { include: true } for cost data
  * - Intercepts responses to log usage data to database
+ * - Supports streaming responses
  */
-app.use('/v1', proxyMiddleware);
+app.use('/openrouter/api/v1', proxyMiddleware);
 
 // =============================================================================
 // ERROR HANDLING
@@ -121,7 +122,7 @@ app.use((err: Error, req: Request, res: Response<ApiErrorResponse>, next: NextFu
 const server = app.listen(PORT, () => {
   process.stdout.write(`[server] OpenRouter Usage Proxy running on http://localhost:${PORT}\n`);
   process.stdout.write(`[server] Dashboard API: http://localhost:${PORT}/api/logs\n`);
-  process.stdout.write(`[server] Proxy endpoint: http://localhost:${PORT}/v1/chat/completions\n`);
+  process.stdout.write(`[server] Proxy endpoint: http://localhost:${PORT}/openrouter/api/v1/chat/completions\n`);
 });
 
 // =============================================================================
