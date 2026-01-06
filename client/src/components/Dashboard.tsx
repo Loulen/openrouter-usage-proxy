@@ -36,7 +36,7 @@ export function Dashboard({ stats, loading }: DashboardProps): JSX.Element {
   return (
     <div className="dashboard">
       <div className="dashboard-grid">
-        <div className="card stat-card">
+        <div className="neu-card stat-card">
           <div className="stat-label">Total Requests</div>
           <div className="stat-value">
             {loading ? (
@@ -47,7 +47,7 @@ export function Dashboard({ stats, loading }: DashboardProps): JSX.Element {
           </div>
         </div>
 
-        <div className="card stat-card">
+        <div className="neu-card stat-card">
           <div className="stat-label">Total Tokens</div>
           <div className="stat-value">
             {loading ? (
@@ -58,7 +58,7 @@ export function Dashboard({ stats, loading }: DashboardProps): JSX.Element {
           </div>
         </div>
 
-        <div className="card stat-card">
+        <div className="neu-card stat-card">
           <div className="stat-label">Total Cost</div>
           <div className="stat-value">
             {loading ? (
