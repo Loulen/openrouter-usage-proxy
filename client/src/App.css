@@ -205,6 +205,11 @@
   margin-bottom: 1rem;
 }
 
+/* Filters section wrapper */
+.app-filters {
+  margin-bottom: 1.5rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .app-header {
