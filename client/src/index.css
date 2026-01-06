@@ -319,3 +319,215 @@ button:disabled {
   box-shadow: inset 6px 6px 12px var(--neu-shadow-dark),
               inset -6px -6px 12px var(--neu-shadow-light);
 }
+
+/* ==========================================================================
+   Filters Component Styles
+   ========================================================================== */
+
+.filters {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: var(--neu-bg);
+  border-radius: 16px;
+  box-shadow: 8px 8px 16px var(--neu-shadow-dark),
+              -8px -8px 16px var(--neu-shadow-light);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.filter-label-spacer {
+  visibility: hidden;
+}
+
+.filter-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-datepicker {
+  width: 100%;
+}
+
+.filter-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-clear-button {
+  height: auto;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+}
+
+.filter-clear-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* React DatePicker customization for neumorphism */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker__input-container {
+  width: 100%;
+}
+
+.react-datepicker__input-container input {
+  width: 100%;
+}
+
+/* Main calendar container */
+.react-datepicker {
+  font-family: inherit;
+  background: var(--neu-bg);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 8px 8px 16px var(--neu-shadow-dark),
+              -8px -8px 16px var(--neu-shadow-light);
+}
+
+/* Calendar header */
+.react-datepicker__header {
+  background: var(--neu-bg);
+  border-bottom: 1px solid var(--neu-shadow-dark);
+  border-radius: 12px 12px 0 0;
+  padding: 0.75rem;
+}
+
+.react-datepicker__current-month {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.react-datepicker__day-name {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+/* Navigation arrows */
+.react-datepicker__navigation {
+  top: 0.75rem;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: var(--text-muted);
+}
+
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: var(--text-primary);
+}
+
+/* Calendar days */
+.react-datepicker__day {
+  color: var(--text-primary);
+  border-radius: 8px;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.react-datepicker__day:hover {
+  background: var(--neu-bg);
+  box-shadow: inset 2px 2px 4px var(--neu-shadow-dark),
+              inset -2px -2px 4px var(--neu-shadow-light);
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--in-selecting-range,
+.react-datepicker__day--in-range {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.react-datepicker__day--selected:hover,
+.react-datepicker__day--in-selecting-range:hover,
+.react-datepicker__day--in-range:hover {
+  background: var(--accent-blue-hover);
+  box-shadow: none;
+}
+
+.react-datepicker__day--keyboard-selected {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.react-datepicker__day--disabled {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.react-datepicker__day--disabled:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.react-datepicker__day--outside-month {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* Close button (for isClearable) */
+.react-datepicker__close-icon {
+  padding-right: 0.5rem;
+}
+
+.react-datepicker__close-icon::after {
+  background-color: var(--text-muted);
+  font-size: 1rem;
+  height: 16px;
+  width: 16px;
+  line-height: 14px;
+}
+
+.react-datepicker__close-icon:hover::after {
+  background-color: var(--text-primary);
+}
+
+/* Triangle arrow */
+.react-datepicker__triangle {
+  display: none;
+}
+
+/* Popper positioning */
+.react-datepicker-popper {
+  z-index: 10;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-label-spacer {
+    display: none;
+  }
+
+  .filter-actions {
+    margin-top: 0.5rem;
+  }
+
+  .filter-clear-button {
+    width: 100%;
+  }
+}
