@@ -147,3 +147,51 @@ button:disabled {
 .empty-state h3 {
   margin-bottom: 0.5rem;
 }
+
+/* Dashboard styles */
+.dashboard {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.stat-loading {
+  color: #d1d5db;
+}
+
+/* Status indicators */
+.status-ok {
+  color: #059669;
+}
+
+.status-error {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* Logs table container */
+.logs-table-container {
+  overflow-x: auto;
+}
