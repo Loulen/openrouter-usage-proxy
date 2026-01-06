@@ -151,3 +151,37 @@ export interface LogsQueryParams {
   /** Number of results to skip (for pagination) */
   offset?: number;
 }
+
+/**
+ * Filter parameters for logs and stats API endpoints
+ * Used for model and time-window filtering
+ */
+export interface FilterParams {
+  /** Filter by model name (exact match) */
+  model?: string;
+  /** Filter logs from this date (ISO 8601) */
+  from?: string;
+  /** Filter logs to this date (ISO 8601) */
+  to?: string;
+}
+
+/**
+ * Statistics breakdown for a single model
+ * Used for pie chart visualization and model comparison
+ */
+export interface ModelStats {
+  /** Model identifier (e.g., "anthropic/claude-3-opus") */
+  model: string;
+  /** Number of requests for this model */
+  request_count: number;
+  /** Total tokens used by this model */
+  total_tokens: number;
+  /** Total cost in USD for this model */
+  total_cost: number;
+}
+
+/**
+ * Response from the /api/logs/models endpoint
+ * Returns a list of distinct model names used in the logs
+ */
+export type ModelsResponse = string[];
