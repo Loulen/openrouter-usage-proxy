@@ -531,3 +531,136 @@ button:disabled {
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   PieChartCard Component Styles
+   ========================================================================== */
+
+.pie-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+}
+
+.pie-chart-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.pie-chart-container {
+  flex: 1;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading state */
+.pie-chart-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 300px;
+}
+
+.pie-chart-loading-text {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Empty state */
+.pie-chart-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.pie-chart-empty-text {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+/* Custom tooltip */
+.pie-chart-tooltip {
+  background: var(--neu-bg);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  box-shadow: 4px 4px 8px var(--neu-shadow-dark),
+              -4px -4px 8px var(--neu-shadow-light);
+}
+
+.pie-chart-tooltip-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+
+.pie-chart-tooltip-value {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Custom legend */
+.pie-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 1rem 0 0 0;
+}
+
+.pie-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  cursor: default;
+}
+
+.pie-chart-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.pie-chart-legend-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Responsive adjustments for pie chart */
+@media (max-width: 768px) {
+  .pie-chart-card {
+    min-height: 350px;
+  }
+
+  .pie-chart-container {
+    min-height: 250px;
+  }
+
+  .pie-chart-loading,
+  .pie-chart-empty {
+    min-height: 250px;
+  }
+
+  .pie-chart-legend {
+    gap: 0.5rem;
+  }
+
+  .pie-chart-legend-text {
+    font-size: 0.6875rem;
+  }
+}
