@@ -105,3 +105,198 @@ export const SELECT_USAGE_STATS = `
     COALESCE(SUM(cost), 0) as total_cost
   FROM usage_logs
 `;
+
+/**
+ * SQL statement to get distinct model names from usage logs
+ * Used for populating the model filter dropdown
+ * Returns models ordered alphabetically
+ */
+export const SELECT_DISTINCT_MODELS = `
+  SELECT DISTINCT model FROM usage_logs ORDER BY model ASC
+`;
+
+/**
+ * Base SQL for selecting logs filtered by model and/or date range
+ * Parameters need to be dynamically added based on filter presence
+ * Uses idx_usage_logs_timestamp and idx_usage_logs_model indexes
+ */
+export const SELECT_LOGS_BASE = `
+  SELECT * FROM usage_logs
+`;
+
+/**
+ * SQL WHERE clause fragment for model filtering
+ * Uses exact match on model name
+ */
+export const WHERE_MODEL = `model = ?`;
+
+/**
+ * SQL WHERE clause fragment for date range filtering (from)
+ * Uses >= for inclusive start date
+ */
+export const WHERE_FROM = `timestamp >= ?`;
+
+/**
+ * SQL WHERE clause fragment for date range filtering (to)
+ * Uses <= for inclusive end date
+ */
+export const WHERE_TO = `timestamp <= ?`;
+
+/**
+ * SQL ORDER BY clause for logs
+ * Most recent first
+ */
+export const ORDER_BY_TIMESTAMP_DESC = `ORDER BY timestamp DESC`;
+
+/**
+ * SQL statement to get usage statistics grouped by model
+ * Used for pie chart visualization
+ * Returns statistics breakdown per model, ordered by total cost descending
+ */
+export const SELECT_MODEL_STATS = `
+  SELECT
+    model,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM usage_logs
+  GROUP BY model
+  ORDER BY total_cost DESC
+`;
+
+/**
+ * SQL statement to get model statistics with optional date range filtering
+ * Base query for building dynamic filtered model stats
+ */
+export const SELECT_MODEL_STATS_BASE = `
+  SELECT
+    model,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM usage_logs
+`;
+
+/**
+ * SQL GROUP BY and ORDER BY clause for model statistics
+ */
+export const GROUP_BY_MODEL_ORDER_BY_COST = `
+  GROUP BY model
+  ORDER BY total_cost DESC
+`;
+
+/**
+ * Helper function to build a filtered logs query dynamically
+ * Constructs WHERE clause based on which filter parameters are provided
+ *
+ * @param filters - Object containing optional model, from, and to filters
+ * @returns Object with sql query string and params array
+ */
+export function buildFilteredLogsQuery(filters: {
+  model?: string;
+  from?: string;
+  to?: string;
+}): { sql: string; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+
+  if (filters.model) {
+    conditions.push(WHERE_MODEL);
+    params.push(filters.model);
+  }
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  let sql = SELECT_LOGS_BASE;
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+  sql += ` ${ORDER_BY_TIMESTAMP_DESC}`;
+
+  return { sql, params };
+}
+
+/**
+ * Helper function to build a filtered stats query dynamically
+ * Constructs WHERE clause based on which filter parameters are provided
+ *
+ * @param filters - Object containing optional model, from, and to filters
+ * @returns Object with sql query string and params array
+ */
+export function buildFilteredStatsQuery(filters: {
+  model?: string;
+  from?: string;
+  to?: string;
+}): { sql: string; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+
+  if (filters.model) {
+    conditions.push(WHERE_MODEL);
+    params.push(filters.model);
+  }
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  let sql = `
+  SELECT
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM usage_logs`;
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  return { sql, params };
+}
+
+/**
+ * Helper function to build a filtered model stats query dynamically
+ * Constructs WHERE clause for date range filtering on model statistics
+ *
+ * @param filters - Object containing optional from and to filters
+ * @returns Object with sql query string and params array
+ */
+export function buildFilteredModelStatsQuery(filters: {
+  from?: string;
+  to?: string;
+}): { sql: string; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  let sql = SELECT_MODEL_STATS_BASE;
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+  sql += GROUP_BY_MODEL_ORDER_BY_COST;
+
+  return { sql, params };
+}
