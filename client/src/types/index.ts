@@ -1,0 +1,88 @@
+/**
+ * TypeScript type definitions for OpenRouter Usage Proxy Web Dashboard
+ * Mirrors backend types needed for frontend display
+ */
+
+/**
+ * Usage log entry as returned from the API
+ */
+export interface UsageLog {
+  /** Auto-incrementing primary key */
+  id: number;
+  /** ISO 8601 timestamp of the request */
+  timestamp: string;
+  /** Model identifier (e.g., "anthropic/claude-3-opus") */
+  model: string;
+  /** Number of input tokens */
+  prompt_tokens: number | null;
+  /** Number of output tokens */
+  completion_tokens: number | null;
+  /** Sum of prompt + completion tokens */
+  total_tokens: number | null;
+  /** Cost in USD (from OpenRouter response) */
+  cost: number | null;
+  /** API endpoint path */
+  request_path: string | null;
+  /** HTTP response status code */
+  status_code: number | null;
+  /** Record creation timestamp */
+  created_at: string;
+}
+
+/**
+ * Summary statistics for the dashboard
+ */
+export interface UsageStats {
+  /** Total number of API requests */
+  request_count: number;
+  /** Total tokens used across all requests */
+  total_tokens: number;
+  /** Total cost in USD across all requests */
+  total_cost: number;
+}
+
+/**
+ * API error response structure
+ */
+export interface ApiErrorResponse {
+  /** Error indicator */
+  error: true;
+  /** Error message */
+  message: string;
+  /** Optional error code */
+  code?: string;
+}
+
+/**
+ * State for the useLogs hook
+ */
+export interface UseLogsState {
+  /** Array of usage log entries */
+  logs: UsageLog[];
+  /** Summary statistics */
+  stats: UsageStats | null;
+  /** Loading state indicator */
+  loading: boolean;
+  /** Error state */
+  error: Error | null;
+}
+
+/**
+ * Props for LogsTable component
+ */
+export interface LogsTableProps {
+  /** Array of usage log entries to display */
+  logs: UsageLog[];
+  /** Whether data is currently loading */
+  loading?: boolean;
+}
+
+/**
+ * Props for Dashboard component
+ */
+export interface DashboardProps {
+  /** Summary statistics to display */
+  stats: UsageStats | null;
+  /** Whether data is currently loading */
+  loading?: boolean;
+}
