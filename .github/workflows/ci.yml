@@ -3,13 +3,13 @@
 #
 # Triggered by:
 #   - Pull requests
-#   - Push to main branch
+#   - Push to main/master branch
 #
 # Tests:
 #   - TypeScript type checking
 #   - Client build
 #   - Server build
-#   - CLI bundle creation
+#   - CLI compilation
 #   - CLI help verification
 
 name: CI
@@ -93,21 +93,13 @@ jobs:
         run: npm ci || npm install
         working-directory: client
 
-      # Build client static assets
-      - name: Build client
-        run: npm run build:client
+      # Build all components (client, server, CLI)
+      - name: Build project
+        run: npm run build
 
-      # Build server (TypeScript compilation)
-      - name: Build server
-        run: npm run build:server
-
-      # Bundle with esbuild
-      - name: Bundle with esbuild
-        run: npm run bundle
-
-      # Verify bundle works
-      - name: Verify CLI bundle
-        run: node dist/bundle.cjs --help
+      # Verify CLI works
+      - name: Test CLI
+        run: node dist/cli/index.js --help
 
       # Upload build artifacts for debugging
       - name: Upload build artifacts
