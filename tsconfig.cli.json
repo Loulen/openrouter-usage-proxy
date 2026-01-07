@@ -7,14 +7,14 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist/cli",
-    "rootDir": "./cli",
+    "outDir": "./dist",
+    "rootDir": ".",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["cli/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["cli/**/*", "server/src/**/*"],
+  "exclude": ["node_modules", "dist", "client"]
 }

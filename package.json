@@ -9,7 +9,6 @@
   "files": [
     "dist",
     "client/dist",
-    "server/dist",
     "README.md",
     "LICENSE"
   ],

@@ -14,6 +14,11 @@ node_modules/
 # Build outputs
 dist/
 build/
+# Compiled TypeScript files alongside source (from CLI build)
+server/src/**/*.js
+server/src/**/*.d.ts
+server/src/**/*.js.map
+server/src/**/*.d.ts.map
 
 # Database files
 *.db
