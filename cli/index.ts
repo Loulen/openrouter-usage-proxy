@@ -16,6 +16,8 @@
 
 import { Command, Option } from 'commander';
 import type { Server } from 'http';
+import { startServer, type ServerInstance } from './server-runner.js';
+import { startStaticServer, type StaticServerInstance } from './static-server.js';
 
 // =============================================================================
 // SERVICE REGISTRY
@@ -45,6 +47,16 @@ export function registerService(name: string, server: Server): void {
  * Check if shutdown is in progress
  */
 let isShuttingDown = false;
+
+/**
+ * Server instance for cleanup during shutdown
+ */
+let serverInstance: ServerInstance | null = null;
+
+/**
+ * Static server instance (for separate port mode)
+ */
+let staticServerInstance: StaticServerInstance | null = null;
 
 /**
  * Default port for the API server
@@ -150,6 +162,10 @@ function shutdown(signal: string): void {
 
       // Exit when all services are closed
       if (closedCount === totalServices) {
+        // Clean up database if server was started
+        if (serverInstance) {
+          serverInstance.cleanup();
+        }
         process.stdout.write('[cli] All services closed, shutdown complete\n');
         process.exit(0);
       }
@@ -172,8 +188,23 @@ async function main(): Promise<void> {
     process.stdout.write(`[cli] Server port: ${options.serverPort}\n`);
     process.stdout.write(`[cli] Client port: ${options.clientPort}\n`);
 
-    // TODO: Start server (implemented in subtask-2-2)
-    // TODO: Start static file server (implemented in subtask-2-3)
+    // Determine mode: unified (same port) or separate (different ports)
+    const unifiedMode = options.serverPort === options.clientPort;
+
+    // Start the API server (with static file serving if unified mode)
+    serverInstance = await startServer(options.serverPort, {
+      serveStaticFiles: unifiedMode,
+    });
+    registerService('API Server', serverInstance.server);
+
+    if (unifiedMode) {
+      // Unified mode: static files served by the API server
+      process.stdout.write(`[cli] Unified mode: Dashboard at http://localhost:${options.serverPort}/\n`);
+    } else {
+      // Separate port mode: start static server on different port
+      staticServerInstance = await startStaticServer(options.clientPort, options.serverPort);
+      registerService('Static Server', staticServerInstance.server);
+    }
 
     process.stdout.write('[cli] Ready! Press Ctrl+C to stop.\n');
   } catch (error) {

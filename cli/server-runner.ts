@@ -12,6 +12,7 @@ import cors from 'cors';
 
 import type { Server } from 'http';
 import type { ApiErrorResponse } from '../server/src/types/index.js';
+import { configureStaticServing } from './static-server.js';
 
 // Load environment variables first (before other imports that may use them)
 dotenv.config();
@@ -32,6 +33,14 @@ export interface ServerInstance {
 }
 
 /**
+ * Server startup options
+ */
+export interface ServerOptions {
+  /** Enable static file serving for unified mode (default: true) */
+  serveStaticFiles?: boolean;
+}
+
+/**
  * Start the Express server on the specified port
  *
  * This function creates and configures the Express application with:
@@ -40,13 +49,16 @@ export interface ServerInstance {
  * - API routes for dashboard data (/api/logs)
  * - Health check endpoint (/health)
  * - Proxy middleware for OpenRouter API (/openrouter/api/v1)
+ * - Static file serving (optional, for unified mode)
  * - Error handling middleware
  *
  * @param port - Port number to listen on (1-65535)
+ * @param options - Server configuration options
  * @returns Promise resolving to ServerInstance with server and cleanup function
  * @throws Error if port is already in use or server fails to start
  */
-export async function startServer(port: number): Promise<ServerInstance> {
+export async function startServer(port: number, options: ServerOptions = {}): Promise<ServerInstance> {
+  const { serveStaticFiles = true } = options;
   // Dynamically import server modules (ensures dotenv is loaded first)
   const [logsModule, proxyModule, dbModule] = await Promise.all([
     import('../server/src/routes/logs.js'),
@@ -105,11 +117,34 @@ export async function startServer(port: number): Promise<ServerInstance> {
   app.use('/openrouter/api/v1', proxyMiddleware);
 
   // =============================================================================
+  // STATIC FILE SERVING (Unified Mode)
+  // =============================================================================
+
+  /**
+   * 5. Static File Serving - Serve built client assets
+   * Only enabled if serveStaticFiles option is true and client/dist exists
+   */
+  if (serveStaticFiles) {
+    try {
+      configureStaticServing(app);
+      process.stdout.write('[server] Static file serving enabled (unified mode)\n');
+    } catch (err) {
+      // In development mode, client assets may not be built - this is OK
+      if (err instanceof Error && err.message.includes('Client dist directory not found')) {
+        process.stdout.write('[server] Note: Client assets not built. Dashboard will not be served.\n');
+        process.stdout.write('[server] Run "npm run build:client" to enable dashboard in unified mode.\n');
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // =============================================================================
   // ERROR HANDLING
   // =============================================================================
 
   /**
-   * 5. Error Handler - Handle all errors
+   * 6. Error Handler - Handle all errors
    * Must be registered LAST after all other middleware and routes
    */
   app.use((err: Error, req: Request, res: Response<ApiErrorResponse>, next: NextFunction) => {

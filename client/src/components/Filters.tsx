@@ -178,7 +178,7 @@ export function Filters({
             selectsEnd
             startDate={fromDate}
             endDate={toDate}
-            minDate={fromDate}
+            minDate={fromDate ?? undefined}
             maxDate={new Date()}
             placeholderText="Select end date"
             dateFormat="yyyy-MM-dd"
