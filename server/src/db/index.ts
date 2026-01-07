@@ -10,6 +10,7 @@ import os from 'os';
 import fs from 'fs';
 import {
   initializeSchema,
+  migrateApiKeyHash,
   INSERT_USAGE_LOG,
   SELECT_ALL_LOGS,
   SELECT_USAGE_STATS,
@@ -63,6 +64,12 @@ db.pragma('journal_mode = WAL');
 initializeSchema(db);
 
 /**
+ * Run migrations for existing databases
+ * Adds api_key_hash column if it doesn't exist
+ */
+migrateApiKeyHash(db);
+
+/**
  * Prepared statement for inserting usage logs
  * Prepared statements are more efficient for repeated operations
  */
@@ -99,6 +106,7 @@ export function insertLog(logInput: UsageLogInput): UsageLog {
     cost: logInput.cost ?? null,
     request_path: logInput.request_path ?? null,
     status_code: logInput.status_code ?? null,
+    api_key_hash: logInput.api_key_hash ?? null,
   });
 
   // Return the inserted row by querying it back
