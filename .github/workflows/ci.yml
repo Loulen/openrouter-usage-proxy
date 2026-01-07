@@ -6,6 +6,7 @@
 #   - Push to main/master branch
 #
 # Tests:
+#   - Unit tests (server and client)
 #   - TypeScript type checking
 #   - Client build
 #   - Server build
@@ -28,9 +29,46 @@ env:
   NODE_VERSION: '20'
 
 jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci || npm install
+
+      - name: Install server dependencies
+        run: npm ci || npm install
+        working-directory: server
+
+      - name: Install client dependencies
+        run: npm ci || npm install
+        working-directory: client
+
+      - name: Run server tests
+        run: npm run test
+        working-directory: server
+
+      - name: Run client tests
+        run: npm run test
+        working-directory: client
+
   typecheck:
     name: TypeScript Check
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -67,7 +105,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: typecheck
+    needs: [test, typecheck]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

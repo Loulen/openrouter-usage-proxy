@@ -49,3 +49,5 @@ Thumbs.db
 .worktrees/
 .auto-claude-status.json
 .claude_settings.json
+ai_docs/
+coverage/

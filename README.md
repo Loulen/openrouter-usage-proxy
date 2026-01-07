@@ -206,6 +206,28 @@ npm run dev
 # This will start both the server and serve the client
 ```
 
+### Running Tests
+
+The project uses Vitest for testing both server and client code.
+
+```bash
+# Run all tests (server + client)
+npm run test
+
+# Run server tests only
+npm run test:server
+
+# Run client tests only
+npm run test:client
+
+# Run tests with coverage report
+npm run test:coverage
+```
+
+Tests are organized by feature:
+- **Server tests** (`server/src/**/__tests__/`): Database operations, API routes, proxy middleware
+- **Client tests** (`client/src/**/__tests__/`): React hooks, components
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
@@ -347,6 +369,11 @@ The SQLite database stores usage logs in the `usage_logs` table:
 - TypeScript
 - React 18
 - Vite
+
+**Testing**
+- Vitest
+- Testing Library (React)
+- Supertest (API)
 
 **CLI**
 - Commander.js
