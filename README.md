@@ -15,7 +15,7 @@ This tool acts as a **transparent proxy** between clients and OpenRouter's API. 
 - React web dashboard for viewing logs and statistics
 - Summary statistics: total tokens, total cost, request count
 - **CLI executable** with configurable ports for easy deployment
-- Pre-built binaries available for Linux, macOS, and Windows
+- Available as a globally installable npm package
 
 ## Architecture
 
@@ -90,53 +90,23 @@ openrouter-usage-proxy/
 
 ## Quick Start
 
+### Installation
+
+Install globally via npm:
+
+```bash
+npm install -g openrouter-usage-proxy
+```
+
+That's it! The package includes everything needed: the proxy server, web dashboard, and all dependencies (including SQLite bindings).
+
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm
 - OpenRouter API key for your clients ([Get one here](https://openrouter.ai/keys))
 
-### Installation
-
-1. Clone the repository and navigate to the project directory
-
-2. (Optional) Set up environment variables if you need to customize ports:
-   ```bash
-   cp .env.example .env
-   # Edit .env to customize PORT or VITE_API_URL if needed
-   ```
-
-3. Install and start the backend server:
-   ```bash
-   cd server
-   npm install
-   npm run dev
-   ```
-
-4. In a new terminal, install and start the frontend:
-   ```bash
-   cd client
-   npm install
-   npm run dev
-   ```
-
-5. Open the dashboard at http://localhost:5173
-
 ## CLI Usage
-
-The OpenRouter Usage Proxy can also be run as a standalone CLI executable that launches both the API server and web dashboard with a single command.
-
-### Pre-built Binaries
-
-Download pre-built binaries from the [GitHub Releases](https://github.com/your-username/openrouter-usage-proxy/releases) page:
-
-| Platform | Architecture | Binary |
-|----------|--------------|--------|
-| Linux | x64 | `openrouter-proxy-linux-x64` |
-| Linux | arm64 | `openrouter-proxy-linux-arm64` |
-| macOS | x64 | `openrouter-proxy-darwin-x64` |
-| macOS | arm64 (Apple Silicon) | `openrouter-proxy-darwin-arm64` |
-| Windows | x64 | `openrouter-proxy-win32-x64.exe` |
 
 ### CLI Options
 
@@ -154,22 +124,22 @@ Options:
 
 **Start with default settings (port 3000):**
 ```bash
-./openrouter-proxy
+openrouter-proxy
 ```
 
 **Start on a custom port:**
 ```bash
-./openrouter-proxy --server-port 8080
+openrouter-proxy --server-port 8080
 ```
 
 **Run API server and dashboard on different ports:**
 ```bash
-./openrouter-proxy --server-port 3000 --client-port 5173
+openrouter-proxy --server-port 3000 --client-port 5173
 ```
 
 **Display help:**
 ```bash
-./openrouter-proxy --help
+openrouter-proxy --help
 ```
 
 ### Unified vs Separate Port Modes
@@ -178,11 +148,17 @@ Options:
 
 - **Separate port mode**: When `--client-port` differs from `--server-port`, the dashboard runs on its own port with API requests proxied to the server port.
 
+## Development
+
 ### Building from Source
 
-To build the CLI executable from source:
+To build and test the package locally:
 
 ```bash
+# Clone the repository
+git clone https://github.com/Loulen/openrouter-usage-proxy.git
+cd openrouter-usage-proxy
+
 # Install dependencies
 npm install
 cd server && npm install && cd ..
@@ -191,8 +167,23 @@ cd client && npm install && cd ..
 # Build everything
 npm run build
 
-# Run the bundled CLI
-node dist/bundle.cjs --help
+# Test the CLI
+node dist/cli/index.js --help
+
+# Or install locally for testing
+npm link
+openrouter-proxy --help
+```
+
+### Development Mode
+
+For active development with hot reload:
+
+```bash
+# Terminal 1: Run the CLI in dev mode
+npm run dev
+
+# This will start both the server and serve the client
 ```
 
 ### Using the Proxy
@@ -294,8 +285,6 @@ The SQLite database stores usage logs in the `usage_logs` table:
 | `status_code` | INTEGER | HTTP response status |
 | `created_at` | TEXT | Record creation timestamp |
 
-## Development
-
 ### Tech Stack
 
 **Backend (Proxy Server)**
@@ -309,23 +298,26 @@ The SQLite database stores usage logs in the `usage_logs` table:
 - React 18
 - Vite
 
-### Scripts
+**CLI**
+- Commander.js
+- Node.js native packaging
 
-**Server:**
+### Publishing
+
+This package is automatically published to npm when a version tag is pushed to GitHub:
+
 ```bash
-cd server
-npm run dev      # Start development server with hot reload
-npm run build    # Build for production
-npm start        # Run production build
+# Update version in package.json, commit, and create a tag
+npm version patch  # or minor, or major
+git push && git push --tags
+
+# GitHub Actions will automatically:
+# 1. Build the package
+# 2. Publish to npm
+# 3. Create a GitHub release
 ```
 
-**Client:**
-```bash
-cd client
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run preview  # Preview production build
-```
+**Note:** You'll need to set up an `NPM_TOKEN` secret in your GitHub repository settings with a valid npm token.
 
 ## Limitations
 

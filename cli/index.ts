@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * OpenRouter Usage Proxy - CLI Entry Point
  *

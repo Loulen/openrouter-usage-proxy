@@ -3,41 +3,61 @@
   "version": "1.0.0",
   "description": "CLI executable for OpenRouter Usage Proxy - launches both server and client with configurable ports",
   "type": "module",
-  "main": "cli/index.ts",
+  "bin": {
+    "openrouter-proxy": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "client/dist",
+    "server/dist",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "dev": "tsx cli/index.ts",
-    "build": "npm run build:client && npm run build:server && npm run bundle",
-    "build:all": "npm run build:client && npm run build:server && npm run bundle",
+    "build": "npm run build:client && npm run build:server && npm run build:cli",
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
-    "bundle": "node esbuild.config.mjs",
-    "start": "node dist/bundle.cjs"
+    "build:cli": "tsc -p tsconfig.cli.json",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "openrouter",
     "proxy",
     "cli",
     "usage",
-    "logging"
+    "logging",
+    "api",
+    "monitoring"
   ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Loulen/openrouter-usage-proxy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Loulen/openrouter-usage-proxy/issues"
+  },
+  "homepage": "https://github.com/Loulen/openrouter-usage-proxy#readme",
   "dependencies": {
     "commander": "^14.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "serve-static": "^1.16.2"
+    "serve-static": "^1.16.2",
+    "better-sqlite3": "^11.7.0",
+    "http-proxy-middleware": "^3.0.5"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.6",
     "@types/serve-static": "^1.15.7",
-    "esbuild": "^0.24.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

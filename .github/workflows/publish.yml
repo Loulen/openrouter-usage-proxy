@@ -1,0 +1,143 @@
+# GitHub Actions npm Publish Workflow
+# Automatically publishes package to npm when a version tag is pushed
+#
+# Triggered by:
+#   - Push of version tags (v*)
+#   - Manual workflow dispatch
+#
+# Requirements:
+#   - NPM_TOKEN secret must be set in repository settings
+#     (Get token from https://www.npmjs.com/settings/<username>/tokens)
+
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+
+      # Install dependencies for all packages
+      - name: Install root dependencies
+        run: npm ci || npm install
+
+      - name: Install server dependencies
+        run: npm ci || npm install
+        working-directory: server
+
+      - name: Install client dependencies
+        run: npm ci || npm install
+        working-directory: client
+
+      # Build all components
+      - name: Build project
+        run: npm run build
+
+      # Verify the build
+      - name: Test CLI
+        run: node dist/cli/index.js --help
+
+      # Determine version from tag
+      - name: Get version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          # Remove 'v' prefix if present
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Publishing version: ${VERSION}"
+
+      # Update package.json version
+      - name: Update package version
+        run: |
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
+
+      # Publish to npm
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Create GitHub release
+      - name: Generate release notes
+        id: notes
+        run: |
+          cat << 'EOF' > release-notes.md
+          ## OpenRouter Usage Proxy v${{ steps.version.outputs.version }}
+
+          ### Installation
+
+          ```bash
+          npm install -g openrouter-usage-proxy
+          ```
+
+          ### Usage
+
+          ```bash
+          # Start with default settings (port 3000)
+          openrouter-proxy
+
+          # Start with custom port
+          openrouter-proxy --server-port 8080
+
+          # Get help
+          openrouter-proxy --help
+          ```
+
+          ### What's Changed
+
+          See the [commit history](https://github.com/${{ github.repository }}/commits/v${{ steps.version.outputs.version }}) for details.
+
+          ### Package Info
+
+          - **npm**: https://www.npmjs.com/package/openrouter-usage-proxy
+          - **Version**: ${{ steps.version.outputs.version }}
+          - **Node.js**: >= 20
+
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
