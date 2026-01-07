@@ -113,6 +113,7 @@ export const proxyMiddleware = createProxyMiddleware<Request, Response>({
     /**
      * Handle outgoing proxy request
      * - Passes through client's Authorization header unchanged (transparent proxy)
+     * - Extracts and hashes API key for usage tracking
      * - Injects usage: { include: true } into request body for cost data
      * - Fixes request body when body-parser middleware runs before proxy
      */
@@ -120,6 +121,17 @@ export const proxyMiddleware = createProxyMiddleware<Request, Response>({
       // Store whether this is a streaming request for later use
       const isStreaming = req.body?.stream === true;
       (req as any)._isStreaming = isStreaming;
+
+      // Extract and hash the API key from Authorization header
+      // Format: "Bearer sk-or-..." - we extract the key part after "Bearer "
+      const authHeader = req.headers['authorization'];
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const apiKey = authHeader.slice(7); // Remove "Bearer " prefix
+        res.locals.apiKeyHash = hashApiKey(apiKey);
+      } else {
+        // No valid Authorization header - store null
+        res.locals.apiKeyHash = null;
+      }
 
       // Handle requests with JSON body (POST, PUT, PATCH)
       // Inject usage: { include: true } for chat completions to get cost data
@@ -172,6 +184,9 @@ export const proxyMiddleware = createProxyMiddleware<Request, Response>({
         try {
           let logEntry: UsageLogInput;
 
+          // Get the API key hash stored in proxyReq handler
+          const apiKeyHash = res.locals.apiKeyHash as string | null;
+
           if (isStreaming) {
             // Parse SSE stream to extract usage data
             const { model, usage } = extractUsageFromStream(responseBuffer);
@@ -185,6 +200,7 @@ export const proxyMiddleware = createProxyMiddleware<Request, Response>({
               cost: usage?.cost ?? null,
               request_path: req.originalUrl || req.url,
               status_code: proxyRes.statusCode ?? null,
+              api_key_hash: apiKeyHash,
             };
           } else {
             // Parse JSON response
@@ -199,6 +215,7 @@ export const proxyMiddleware = createProxyMiddleware<Request, Response>({
               cost: data.usage?.cost ?? null,
               request_path: req.originalUrl || req.url,
               status_code: proxyRes.statusCode ?? null,
+              api_key_hash: apiKeyHash,
             };
           }
 
@@ -208,11 +225,13 @@ export const proxyMiddleware = createProxyMiddleware<Request, Response>({
           // Log parsing errors but don't block the response
           if (err instanceof SyntaxError) {
             // Non-JSON response - log with minimal data
+            const apiKeyHash = res.locals.apiKeyHash as string | null;
             const logEntry: UsageLogInput = {
               timestamp,
               model: 'unknown',
               request_path: req.originalUrl || req.url,
               status_code: proxyRes.statusCode ?? null,
+              api_key_hash: apiKeyHash,
             };
 
             // Only log if it's an error response (4xx, 5xx)
@@ -235,12 +254,15 @@ export const proxyMiddleware = createProxyMiddleware<Request, Response>({
       process.stderr.write(`[proxy] Proxy error: ${err.message}\n`);
 
       // Log the error request
+      // Get API key hash from res.locals if available (res must be an Express Response)
+      const apiKeyHash = 'locals' in res ? (res.locals.apiKeyHash as string | null) : null;
       const timestamp = new Date().toISOString();
       const logEntry: UsageLogInput = {
         timestamp,
         model: 'error',
         request_path: req.originalUrl || req.url,
         status_code: 502,
+        api_key_hash: apiKeyHash,
       };
 
       try {
