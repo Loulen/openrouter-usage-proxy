@@ -21,7 +21,11 @@
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
     "build:cli": "tsc -p tsconfig.cli.json",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test": "cd server && npm run test && cd ../client && npm run test",
+    "test:server": "cd server && npm run test",
+    "test:client": "cd client && npm run test",
+    "test:coverage": "cd server && npm run test:coverage && cd ../client && npm run test:coverage"
   },
   "keywords": [
     "openrouter",
