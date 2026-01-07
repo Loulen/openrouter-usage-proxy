@@ -16,6 +16,7 @@
  * - cost: Cost in USD as REAL/float (nullable, from OpenRouter response)
  * - request_path: API endpoint path (nullable)
  * - status_code: HTTP response status code (nullable)
+ * - api_key_hash: SHA-256 hash of the API key used (nullable for backward compatibility)
  * - created_at: Record creation timestamp (auto-set to current time)
  */
 export const CREATE_USAGE_LOGS_TABLE = `
@@ -29,6 +30,7 @@ export const CREATE_USAGE_LOGS_TABLE = `
     cost REAL,
     request_path TEXT,
     status_code INTEGER,
+    api_key_hash TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )
 `;
@@ -50,6 +52,14 @@ export const CREATE_MODEL_INDEX = `
 `;
 
 /**
+ * SQL statement to create an index on api_key_hash for efficient filtering by API key
+ */
+export const CREATE_API_KEY_HASH_INDEX = `
+  CREATE INDEX IF NOT EXISTS idx_usage_logs_api_key_hash
+  ON usage_logs (api_key_hash)
+`;
+
+/**
  * Initialize database schema
  * Executes all CREATE TABLE and CREATE INDEX statements
  *
@@ -59,6 +69,41 @@ export function initializeSchema(db: { exec: (sql: string) => void }): void {
   db.exec(CREATE_USAGE_LOGS_TABLE);
   db.exec(CREATE_TIMESTAMP_INDEX);
   db.exec(CREATE_MODEL_INDEX);
+  db.exec(CREATE_API_KEY_HASH_INDEX);
+}
+
+/**
+ * Database interface for migration operations
+ * Extends the basic exec interface with prepare for querying
+ */
+interface MigrationDatabase {
+  exec: (sql: string) => void;
+  prepare: (sql: string) => { get: () => { count: number } | undefined };
+}
+
+/**
+ * Migration function to add api_key_hash column to existing databases
+ * Checks if column exists before adding to ensure idempotency
+ * Creates index on the new column for efficient filtering
+ *
+ * @param db - better-sqlite3 Database instance
+ */
+export function migrateApiKeyHash(db: MigrationDatabase): void {
+  // Check if column already exists using pragma_table_info
+  const result = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM pragma_table_info('usage_logs')
+    WHERE name = 'api_key_hash'
+  `).get();
+
+  const hasColumn = result?.count ?? 0;
+
+  if (hasColumn === 0) {
+    // Add the new column
+    db.exec(`ALTER TABLE usage_logs ADD COLUMN api_key_hash TEXT`);
+    // Create index for efficient filtering
+    db.exec(CREATE_API_KEY_HASH_INDEX);
+  }
 }
 
 /**
@@ -74,7 +119,8 @@ export const INSERT_USAGE_LOG = `
     total_tokens,
     cost,
     request_path,
-    status_code
+    status_code,
+    api_key_hash
   ) VALUES (
     @timestamp,
     @model,
@@ -83,7 +129,8 @@ export const INSERT_USAGE_LOG = `
     @total_tokens,
     @cost,
     @request_path,
-    @status_code
+    @status_code,
+    @api_key_hash
   )
 `;
 

@@ -24,6 +24,8 @@ export interface UsageLog {
   request_path: string | null;
   /** HTTP response status code */
   status_code: number | null;
+  /** SHA-256 hash of the API key used (nullable for backward compatibility) */
+  api_key_hash: string | null;
   /** Record creation timestamp */
   created_at: string;
 }
@@ -49,6 +51,8 @@ export interface UsageLogInput {
   request_path?: string | null;
   /** HTTP response status code */
   status_code?: number | null;
+  /** SHA-256 hash of the API key used (nullable for backward compatibility) */
+  api_key_hash?: string | null;
 }
 
 /**

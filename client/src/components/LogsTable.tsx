@@ -70,6 +70,7 @@ export function LogsTable({ logs, loading }: LogsTableProps): JSX.Element {
         <thead>
           <tr>
             <th>Timestamp</th>
+            <th style={{ minWidth: '100px', maxWidth: '150px' }}>API Key</th>
             <th>Model</th>
             <th className="text-right">Prompt Tokens</th>
             <th className="text-right">Completion Tokens</th>
@@ -82,6 +83,7 @@ export function LogsTable({ logs, loading }: LogsTableProps): JSX.Element {
           {logs.map((log) => (
             <tr key={log.id}>
               <td>{formatTimestamp(log.timestamp)}</td>
+              <td style={{ minWidth: '100px', maxWidth: '150px' }}>{log.api_key_label ?? 'unknown'}</td>
               <td title={log.model}>{formatModel(log.model)}</td>
               <td className="text-right">{formatNumber(log.prompt_tokens)}</td>
               <td className="text-right">{formatNumber(log.completion_tokens)}</td>

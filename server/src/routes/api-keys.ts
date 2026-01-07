@@ -11,6 +11,7 @@ import {
   deleteApiKey,
   getAllApiKeys,
 } from '../db/settings.js';
+import { hashApiKey } from '../middleware/proxy.js';
 import type {
   ApiKeyConfig,
   ApiKeyBalance,
@@ -213,6 +214,32 @@ router.post('/', (req: Request, res: Response<Omit<ApiKeyConfig, 'key'> & { mask
         ? `${newApiKey.key.substring(0, 8)}...${newApiKey.key.substring(newApiKey.key.length - 4)}`
         : '***',
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/api-keys/hash-map
+ * Returns a mapping of API key hashes to their labels for client-side resolution
+ *
+ * This endpoint allows clients to resolve API key hashes (stored in usage logs)
+ * to human-readable labels without exposing the actual API key values.
+ *
+ * @returns Object mapping hash strings to label strings: { [hash: string]: string }
+ */
+router.get('/hash-map', (req: Request, res: Response<Record<string, string> | ApiErrorResponse>, next: NextFunction) => {
+  try {
+    const apiKeys = getAllApiKeys();
+
+    // Build hash-to-label mapping
+    const hashMap: Record<string, string> = {};
+    for (const apiKey of apiKeys) {
+      const hash = hashApiKey(apiKey.key);
+      hashMap[hash] = apiKey.label;
+    }
+
+    res.json(hashMap);
   } catch (err) {
     next(err);
   }
