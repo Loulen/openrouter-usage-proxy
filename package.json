@@ -1,0 +1,40 @@
+{
+  "name": "openrouter-usage-proxy",
+  "version": "1.0.0",
+  "description": "CLI executable for OpenRouter Usage Proxy - launches both server and client with configurable ports",
+  "type": "module",
+  "main": "cli/index.ts",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx cli/index.ts",
+    "build": "npm run build:client && npm run build:server && npm run bundle",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "bundle": "node esbuild.config.mjs",
+    "start": "node dist/bundle.cjs"
+  },
+  "keywords": [
+    "openrouter",
+    "proxy",
+    "cli",
+    "usage",
+    "logging"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.0",
+    "express": "^4.21.2",
+    "serve-static": "^1.16.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.6",
+    "@types/serve-static": "^1.15.7",
+    "esbuild": "^0.24.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
