@@ -12,6 +12,7 @@
  */
 
 import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
+import { createHash } from 'crypto';
 import type { ClientRequest, IncomingMessage } from 'http';
 import type { Request, Response } from 'express';
 import { insertLog } from '../db/index.js';
@@ -21,6 +22,26 @@ import type { OpenRouterChatResponse, UsageLogInput } from '../types/index.js';
  * OpenRouter API base URL
  */
 const OPENROUTER_TARGET = 'https://openrouter.ai';
+
+/**
+ * Compute SHA-256 hash of an API key for secure storage and identification
+ *
+ * This function creates a deterministic hash of the API key using SHA-256,
+ * which allows identifying requests by API key without storing the actual key.
+ * The hash is returned as a lowercase hex-encoded string.
+ *
+ * @param apiKey - The API key string to hash
+ * @returns Lowercase hex-encoded SHA-256 hash of the API key
+ *
+ * @example
+ * ```typescript
+ * const hash = hashApiKey('sk-or-v1-abc123...');
+ * // Returns: 'a1b2c3d4e5f6...' (64 character hex string)
+ * ```
+ */
+export function hashApiKey(apiKey: string): string {
+  return createHash('sha256').update(apiKey).digest('hex');
+}
 
 /**
  * Parse SSE data to extract JSON from streaming responses
