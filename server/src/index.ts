@@ -22,6 +22,7 @@ dotenv.config();
 
 // Import after dotenv.config() so environment variables are available
 import logsRouter from './routes/logs.js';
+import settingsRouter from './routes/settings.js';
 import { proxyMiddleware } from './middleware/proxy.js';
 import { closeDatabase } from './db/index.js';
 import type { ApiErrorResponse } from './types/index.js';
@@ -66,6 +67,15 @@ app.use(express.json());
  * - GET /api/logs/stats - Returns aggregated statistics
  */
 app.use('/api/logs', logsRouter);
+
+/**
+ * Settings API Routes - Application settings management
+ *
+ * Endpoints:
+ * - GET /api/settings - Returns current settings
+ * - PUT /api/settings - Updates settings
+ */
+app.use('/api/settings', settingsRouter);
 
 /**
  * Health check endpoint for monitoring
