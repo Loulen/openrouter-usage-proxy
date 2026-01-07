@@ -82,7 +82,11 @@ function App(): JSX.Element {
       <main className="app-main">
         {activePage === 'dashboard' && (
           <>
-            <Dashboard stats={stats} loading={loading} />
+            <Dashboard
+              stats={stats}
+              loading={loading}
+              onGoToSettings={() => handlePageChange('settings')}
+            />
             <LogsTable logs={logs} loading={loading} />
           </>
         )}

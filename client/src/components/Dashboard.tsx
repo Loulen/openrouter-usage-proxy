@@ -1,4 +1,7 @@
 import type { DashboardProps } from '../types';
+import { useSettings } from '../hooks/useSettings';
+import { useApiKeys } from '../hooks/useApiKeys';
+import { ApiKeyTable } from './ApiKeyTable';
 
 /**
  * Format a number to a USD currency string
@@ -25,13 +28,28 @@ function formatNumber(value: number): string {
 /**
  * Dashboard component for displaying summary statistics
  * Shows total requests, total tokens, and total cost in card format
+ * Conditionally shows API key balance table when feature is enabled
  * Handles loading and empty states gracefully
  */
-export function Dashboard({ stats, loading }: DashboardProps): JSX.Element {
+export function Dashboard({ stats, loading, onGoToSettings }: DashboardProps): JSX.Element {
   // Show placeholder values when loading or no stats
   const requestCount = stats?.request_count ?? 0;
   const totalTokens = stats?.total_tokens ?? 0;
   const totalCost = stats?.total_cost ?? 0;
+
+  // Fetch settings to check if API key tracking is enabled
+  const { settings } = useSettings();
+
+  // Fetch API key balances
+  const {
+    balances,
+    loading: balancesLoading,
+    error: balancesError,
+    refreshBalances,
+  } = useApiKeys();
+
+  // Determine if API key table should be shown
+  const showApiKeyTable = settings?.apiKeyTrackingEnabled ?? false;
 
   return (
     <div className="dashboard">
@@ -69,6 +87,19 @@ export function Dashboard({ stats, loading }: DashboardProps): JSX.Element {
           </div>
         </div>
       </div>
+
+      {/* API Key Balance Table - shown when feature is enabled */}
+      {showApiKeyTable && (
+        <div className="dashboard-api-keys">
+          <ApiKeyTable
+            stats={balances}
+            loading={balancesLoading}
+            error={balancesError}
+            onRefresh={refreshBalances}
+            onGoToSettings={onGoToSettings}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -85,6 +85,8 @@ export interface DashboardProps {
   stats: UsageStats | null;
   /** Whether data is currently loading */
   loading?: boolean;
+  /** Callback to navigate to settings page (used when ApiKeyTable shows empty state) */
+  onGoToSettings?: () => void;
 }
 
 /**
