@@ -300,3 +300,60 @@ export function buildFilteredModelStatsQuery(filters: {
 
   return { sql, params };
 }
+
+/**
+ * SQL format strings for different aggregation periods
+ * Uses SQLite strftime for date truncation
+ */
+export const AGGREGATION_FORMATS: Record<string, string> = {
+  hour: '%Y-%m-%dT%H:00:00',
+  day: '%Y-%m-%d',
+  week: '%Y-%W', // ISO week number
+};
+
+/**
+ * Helper function to build a time-series query with aggregation
+ * Groups data by time period and model for line chart visualization
+ *
+ * @param filters - Object containing optional from, to, and aggregation filters
+ * @returns Object with sql query string and params array
+ */
+export function buildTimeSeriesQuery(filters: {
+  from?: string;
+  to?: string;
+  aggregation?: 'hour' | 'day' | 'week';
+}): { sql: string; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+  const aggregation = filters.aggregation || 'day';
+  const dateFormat = AGGREGATION_FORMATS[aggregation] || AGGREGATION_FORMATS.day;
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  let sql = `
+  SELECT
+    strftime('${dateFormat}', timestamp) as period,
+    model,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM usage_logs`;
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  sql += `
+  GROUP BY period, model
+  ORDER BY period ASC, model ASC`;
+
+  return { sql, params };
+}

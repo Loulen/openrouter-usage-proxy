@@ -9,6 +9,7 @@ import {
   getFilteredLogs,
   getFilteredStats,
   getModelStats,
+  getTimeSeries,
 } from '../db/index.js';
 import type {
   UsageLog,
@@ -17,6 +18,8 @@ import type {
   FilterParams,
   ModelStats,
   ModelsResponse,
+  TimeSeriesDataPoint,
+  AggregationPeriod,
 } from '../types/index.js';
 
 /**
@@ -121,6 +124,41 @@ router.get('/model-stats', (req: Request, res: Response<ModelStats[] | ApiErrorR
     // model-stats doesn't use model filter (it returns all models)
     const modelStats = getModelStats({ from: filters.from, to: filters.to });
     res.json(modelStats);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/logs/time-series
+ * Returns usage statistics grouped by time period and model
+ * Used for line chart visualization of consumption over time
+ * Supports optional query parameters:
+ *   - from: Filter stats from this date (ISO 8601)
+ *   - to: Filter stats to this date (ISO 8601)
+ *   - aggregation: Time period aggregation (hour, day, week) - defaults to 'day'
+ *
+ * @returns Array of TimeSeriesDataPoint objects with period, model, and stats
+ */
+router.get('/time-series', (req: Request, res: Response<TimeSeriesDataPoint[] | ApiErrorResponse>, next: NextFunction) => {
+  try {
+    const filters = parseFilterParams(req.query);
+
+    // Parse aggregation parameter with validation
+    let aggregation: AggregationPeriod = 'day';
+    if (typeof req.query.aggregation === 'string') {
+      const agg = req.query.aggregation.trim().toLowerCase();
+      if (agg === 'hour' || agg === 'day' || agg === 'week') {
+        aggregation = agg;
+      }
+    }
+
+    const timeSeries = getTimeSeries({
+      from: filters.from,
+      to: filters.to,
+      aggregation,
+    });
+    res.json(timeSeries);
   } catch (err) {
     next(err);
   }

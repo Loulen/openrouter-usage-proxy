@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PieChartCard } from './PieChartCard';
-import type { StatsPageProps, ModelStats, ChartDataPoint, FilterParams } from '../types';
+import { LineChartCard } from './LineChartCard';
+import type {
+  StatsPageProps,
+  ModelStats,
+  ChartDataPoint,
+  FilterParams,
+  TimeSeriesDataPoint,
+  AggregationPeriod,
+} from '../types';
 
 /**
  * Builds a query string from filter parameters
@@ -68,13 +76,17 @@ function transformToChartData(
 }
 
 /**
- * StatsPage component for displaying model usage statistics with pie charts
+ * StatsPage component for displaying model usage statistics with pie charts and line charts
  * Shows breakdown of requests, tokens, and costs by model
+ * Includes time-series visualization with aggregation options
  * Supports filtering by model and date range
  */
 export function StatsPage({ filters, loading: filtersLoading = false }: StatsPageProps): JSX.Element {
   const [modelStats, setModelStats] = useState<ModelStats[]>([]);
+  const [timeSeries, setTimeSeries] = useState<TimeSeriesDataPoint[]>([]);
+  const [aggregation, setAggregation] = useState<AggregationPeriod>('day');
   const [loading, setLoading] = useState(true);
+  const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchModelStats = useCallback(async () => {
@@ -98,9 +110,39 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
     }
   }, [filters?.model, filters?.from, filters?.to]);
 
+  const fetchTimeSeries = useCallback(async () => {
+    setTimeSeriesLoading(true);
+
+    try {
+      const params = new URLSearchParams();
+      if (filters?.from) params.append('from', filters.from);
+      if (filters?.to) params.append('to', filters.to);
+      params.append('aggregation', aggregation);
+
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const response = await fetch(`/api/logs/time-series${queryString}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch time series: ${response.status} ${response.statusText}`);
+      }
+
+      const data: TimeSeriesDataPoint[] = await response.json();
+      setTimeSeries(data);
+    } catch (err) {
+      // Don't override main error state, just log
+      console.error('Failed to fetch time series:', err);
+    } finally {
+      setTimeSeriesLoading(false);
+    }
+  }, [filters?.from, filters?.to, aggregation]);
+
   useEffect(() => {
     fetchModelStats();
   }, [fetchModelStats]);
+
+  useEffect(() => {
+    fetchTimeSeries();
+  }, [fetchTimeSeries]);
 
   // Calculate summary statistics
   const totalRequests = modelStats.reduce((sum, stat) => sum + stat.request_count, 0);
@@ -170,6 +212,16 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
               loading={isLoading}
             />
           </div>
+
+          {/* Time Series Line Chart */}
+          <LineChartCard
+            title="Cost Over Time by Model"
+            data={timeSeries}
+            metric="total_cost"
+            loading={timeSeriesLoading || filtersLoading}
+            aggregation={aggregation}
+            onAggregationChange={setAggregation}
+          />
 
           {/* Model Breakdown Table */}
           {!isLoading && modelStats.length > 0 && (

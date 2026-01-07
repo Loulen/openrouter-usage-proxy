@@ -187,3 +187,55 @@ export interface NavBarProps {
   /** Callback when page changes */
   onPageChange: (page: 'dashboard' | 'stats') => void;
 }
+
+/**
+ * Aggregation period for time-series data
+ * Controls how data points are grouped in time
+ */
+export type AggregationPeriod = 'hour' | 'day' | 'week';
+
+/**
+ * Time-series data point for consumption over time
+ * Used for line chart visualization
+ */
+export interface TimeSeriesDataPoint {
+  /** Period start timestamp (ISO 8601 or formatted string) */
+  period: string;
+  /** Model identifier */
+  model: string;
+  /** Number of requests in this period */
+  request_count: number;
+  /** Total tokens used in this period */
+  total_tokens: number;
+  /** Total cost in USD for this period */
+  total_cost: number;
+}
+
+/**
+ * Line chart data structure for recharts
+ * Each data point represents a time period with values per model
+ */
+export interface LineChartDataPoint {
+  /** Period label for x-axis */
+  period: string;
+  /** Dynamic keys for each model's value */
+  [model: string]: string | number;
+}
+
+/**
+ * Props for LineChartCard component
+ */
+export interface LineChartCardProps {
+  /** Title displayed above the chart */
+  title: string;
+  /** Time-series data points from API */
+  data: TimeSeriesDataPoint[];
+  /** Metric to display (requests, tokens, or cost) */
+  metric: 'request_count' | 'total_tokens' | 'total_cost';
+  /** Whether data is loading */
+  loading?: boolean;
+  /** Current aggregation period */
+  aggregation: AggregationPeriod;
+  /** Callback when aggregation changes */
+  onAggregationChange: (aggregation: AggregationPeriod) => void;
+}

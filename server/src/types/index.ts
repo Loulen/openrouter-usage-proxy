@@ -185,3 +185,35 @@ export interface ModelStats {
  * Returns a list of distinct model names used in the logs
  */
 export type ModelsResponse = string[];
+
+/**
+ * Aggregation period for time-series data
+ * Controls how data points are grouped in time
+ */
+export type AggregationPeriod = 'hour' | 'day' | 'week';
+
+/**
+ * Time-series data point for consumption over time
+ * Used for line chart visualization
+ */
+export interface TimeSeriesDataPoint {
+  /** Period start timestamp (ISO 8601) */
+  period: string;
+  /** Model identifier */
+  model: string;
+  /** Number of requests in this period */
+  request_count: number;
+  /** Total tokens used in this period */
+  total_tokens: number;
+  /** Total cost in USD for this period */
+  total_cost: number;
+}
+
+/**
+ * Filter parameters for time-series endpoint
+ * Extends FilterParams with aggregation period
+ */
+export interface TimeSeriesFilterParams extends FilterParams {
+  /** Aggregation period (hour, day, week) */
+  aggregation?: AggregationPeriod;
+}

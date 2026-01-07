@@ -861,3 +861,159 @@ button:disabled {
     max-width: 150px;
   }
 }
+
+/* ==========================================================================
+   LineChartCard Component Styles
+   ========================================================================== */
+
+.line-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 450px;
+}
+
+.line-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.line-chart-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.line-chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.line-chart-aggregation-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.line-chart-aggregation-select {
+  min-width: 100px;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.line-chart-container {
+  flex: 1;
+  min-height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading state */
+.line-chart-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 350px;
+}
+
+.line-chart-loading-text {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Empty state */
+.line-chart-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 350px;
+}
+
+.line-chart-empty-text {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+/* Custom tooltip */
+.line-chart-tooltip {
+  background: var(--neu-bg);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  box-shadow: 4px 4px 8px var(--neu-shadow-dark),
+              -4px -4px 8px var(--neu-shadow-light);
+  max-width: 300px;
+}
+
+.line-chart-tooltip-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--neu-shadow-dark);
+  padding-bottom: 0.5rem;
+}
+
+.line-chart-tooltip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.line-chart-tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+}
+
+.line-chart-tooltip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.line-chart-tooltip-value {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Responsive adjustments for line chart */
+@media (max-width: 768px) {
+  .line-chart-card {
+    min-height: 400px;
+  }
+
+  .line-chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .line-chart-container {
+    min-height: 300px;
+  }
+
+  .line-chart-loading,
+  .line-chart-empty {
+    min-height: 300px;
+  }
+
+  .line-chart-title {
+    font-size: 1rem;
+  }
+}

@@ -15,6 +15,7 @@ import {
   buildFilteredLogsQuery,
   buildFilteredStatsQuery,
   buildFilteredModelStatsQuery,
+  buildTimeSeriesQuery,
 } from './schema.js';
 import type {
   UsageLog,
@@ -23,6 +24,8 @@ import type {
   FilterParams,
   ModelStats,
   ModelsResponse,
+  TimeSeriesDataPoint,
+  AggregationPeriod,
 } from '../types/index.js';
 
 /**
@@ -187,4 +190,22 @@ export function getModelStats(filters: { from?: string; to?: string } = {}): Mod
   const { sql, params } = buildFilteredModelStatsQuery(filters);
   const statement = db.prepare(sql);
   return statement.all(...params) as ModelStats[];
+}
+
+/**
+ * Get time-series usage data grouped by period and model
+ * Used for line chart visualization showing consumption over time
+ * Supports date range filtering and aggregation period selection
+ *
+ * @param filters - Optional filter parameters (from, to, aggregation)
+ * @returns Array of time-series data points
+ */
+export function getTimeSeries(filters: {
+  from?: string;
+  to?: string;
+  aggregation?: AggregationPeriod;
+} = {}): TimeSeriesDataPoint[] {
+  const { sql, params } = buildTimeSeriesQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.all(...params) as TimeSeriesDataPoint[];
 }
