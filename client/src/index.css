@@ -1,3 +1,16 @@
+/* Neumorphism Design System */
+:root {
+  --neu-bg: #e0e5ec;
+  --neu-shadow-dark: #a3b1c6;
+  --neu-shadow-light: #ffffff;
+  --text-primary: #1a1a2e;
+  --text-muted: #6b7280;
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  --error-color: #dc2626;
+  --success-color: #059669;
+}
+
 /* Reset and base styles */
 *,
 *::before,
@@ -16,8 +29,8 @@ html {
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   line-height: 1.6;
-  color: #1a1a2e;
-  background-color: #f5f5f5;
+  color: var(--text-primary);
+  background-color: var(--neu-bg);
   min-height: 100vh;
 }
 
@@ -33,7 +46,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Links */
 a {
-  color: #3b82f6;
+  color: var(--accent-blue);
   text-decoration: none;
 }
 
@@ -71,13 +84,13 @@ button {
   border: none;
   border-radius: 0.375rem;
   padding: 0.5rem 1rem;
-  background-color: #3b82f6;
+  background-color: var(--accent-blue);
   color: white;
   transition: background-color 0.2s ease;
 }
 
 button:hover {
-  background-color: #2563eb;
+  background-color: var(--accent-blue-hover);
 }
 
 button:disabled {
@@ -101,7 +114,7 @@ button:disabled {
 }
 
 .text-muted {
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .text-right {
@@ -116,8 +129,8 @@ button:disabled {
 .spinner {
   width: 2rem;
   height: 2rem;
-  border: 3px solid #e5e7eb;
-  border-top-color: #3b82f6;
+  border: 3px solid var(--neu-shadow-dark);
+  border-top-color: var(--accent-blue);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -130,7 +143,7 @@ button:disabled {
 
 /* Error state */
 .error {
-  color: #dc2626;
+  color: var(--error-color);
   background-color: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 0.375rem;
@@ -141,7 +154,7 @@ button:disabled {
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .empty-state h3 {
@@ -165,7 +178,7 @@ button:disabled {
 
 .stat-label {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
@@ -174,7 +187,7 @@ button:disabled {
 .stat-value {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text-primary);
 }
 
 .stat-loading {
@@ -183,15 +196,824 @@ button:disabled {
 
 /* Status indicators */
 .status-ok {
-  color: #059669;
+  color: var(--success-color);
 }
 
 .status-error {
-  color: #dc2626;
+  color: var(--error-color);
   font-weight: 600;
 }
 
 /* Logs table container */
 .logs-table-container {
   overflow-x: auto;
+}
+
+/* Neumorphism Utility Classes */
+
+/* Raised element (default state for cards/containers) */
+.neu-raised {
+  background: var(--neu-bg);
+  box-shadow: 8px 8px 16px var(--neu-shadow-dark),
+              -8px -8px 16px var(--neu-shadow-light);
+  border-radius: 12px;
+}
+
+/* Pressed/inset element (for active states, inputs) */
+.neu-pressed {
+  background: var(--neu-bg);
+  box-shadow: inset 4px 4px 8px var(--neu-shadow-dark),
+              inset -4px -4px 8px var(--neu-shadow-light);
+  border-radius: 12px;
+}
+
+/* Flat element (subtle neumorphism) */
+.neu-flat {
+  background: var(--neu-bg);
+  box-shadow: 4px 4px 8px var(--neu-shadow-dark),
+              -4px -4px 8px var(--neu-shadow-light);
+  border-radius: 8px;
+}
+
+/* Neumorphic button with interactive states */
+.neu-button {
+  background: var(--neu-bg);
+  box-shadow: 6px 6px 12px var(--neu-shadow-dark),
+              -6px -6px 12px var(--neu-shadow-light);
+  border-radius: 12px;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.neu-button:hover {
+  box-shadow: 4px 4px 8px var(--neu-shadow-dark),
+              -4px -4px 8px var(--neu-shadow-light);
+}
+
+.neu-button:active {
+  box-shadow: inset 4px 4px 8px var(--neu-shadow-dark),
+              inset -4px -4px 8px var(--neu-shadow-light);
+}
+
+.neu-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Neumorphic card container */
+.neu-card {
+  background: var(--neu-bg);
+  box-shadow: 8px 8px 16px var(--neu-shadow-dark),
+              -8px -8px 16px var(--neu-shadow-light);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+/* Neumorphic input field */
+.neu-input {
+  background: var(--neu-bg);
+  box-shadow: inset 4px 4px 8px var(--neu-shadow-dark),
+              inset -4px -4px 8px var(--neu-shadow-light);
+  border-radius: 8px;
+  border: none;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+  outline: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.neu-input:focus {
+  box-shadow: inset 6px 6px 12px var(--neu-shadow-dark),
+              inset -6px -6px 12px var(--neu-shadow-light);
+}
+
+.neu-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Neumorphic select/dropdown */
+.neu-select {
+  background: var(--neu-bg);
+  box-shadow: inset 4px 4px 8px var(--neu-shadow-dark),
+              inset -4px -4px 8px var(--neu-shadow-light);
+  border-radius: 8px;
+  border: none;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  padding-right: 2.5rem;
+}
+
+.neu-select:focus {
+  box-shadow: inset 6px 6px 12px var(--neu-shadow-dark),
+              inset -6px -6px 12px var(--neu-shadow-light);
+}
+
+/* ==========================================================================
+   Filters Component Styles
+   ========================================================================== */
+
+.filters {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: var(--neu-bg);
+  border-radius: 16px;
+  box-shadow: 8px 8px 16px var(--neu-shadow-dark),
+              -8px -8px 16px var(--neu-shadow-light);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.filter-label-spacer {
+  visibility: hidden;
+}
+
+.filter-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-datepicker {
+  width: 100%;
+}
+
+.filter-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-clear-button {
+  height: auto;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+}
+
+.filter-clear-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* React DatePicker customization for neumorphism */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker__input-container {
+  width: 100%;
+}
+
+.react-datepicker__input-container input {
+  width: 100%;
+}
+
+/* Main calendar container */
+.react-datepicker {
+  font-family: inherit;
+  background: var(--neu-bg);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 8px 8px 16px var(--neu-shadow-dark),
+              -8px -8px 16px var(--neu-shadow-light);
+}
+
+/* Calendar header */
+.react-datepicker__header {
+  background: var(--neu-bg);
+  border-bottom: 1px solid var(--neu-shadow-dark);
+  border-radius: 12px 12px 0 0;
+  padding: 0.75rem;
+}
+
+.react-datepicker__current-month {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.react-datepicker__day-name {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+/* Navigation arrows */
+.react-datepicker__navigation {
+  top: 0.75rem;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: var(--text-muted);
+}
+
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: var(--text-primary);
+}
+
+/* Calendar days */
+.react-datepicker__day {
+  color: var(--text-primary);
+  border-radius: 8px;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.react-datepicker__day:hover {
+  background: var(--neu-bg);
+  box-shadow: inset 2px 2px 4px var(--neu-shadow-dark),
+              inset -2px -2px 4px var(--neu-shadow-light);
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--in-selecting-range,
+.react-datepicker__day--in-range {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.react-datepicker__day--selected:hover,
+.react-datepicker__day--in-selecting-range:hover,
+.react-datepicker__day--in-range:hover {
+  background: var(--accent-blue-hover);
+  box-shadow: none;
+}
+
+.react-datepicker__day--keyboard-selected {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.react-datepicker__day--disabled {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.react-datepicker__day--disabled:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.react-datepicker__day--outside-month {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* Close button (for isClearable) */
+.react-datepicker__close-icon {
+  padding-right: 0.5rem;
+}
+
+.react-datepicker__close-icon::after {
+  background-color: var(--text-muted);
+  font-size: 1rem;
+  height: 16px;
+  width: 16px;
+  line-height: 14px;
+}
+
+.react-datepicker__close-icon:hover::after {
+  background-color: var(--text-primary);
+}
+
+/* Triangle arrow */
+.react-datepicker__triangle {
+  display: none;
+}
+
+/* Popper positioning */
+.react-datepicker-popper {
+  z-index: 10;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-label-spacer {
+    display: none;
+  }
+
+  .filter-actions {
+    margin-top: 0.5rem;
+  }
+
+  .filter-clear-button {
+    width: 100%;
+  }
+}
+
+/* ==========================================================================
+   PieChartCard Component Styles
+   ========================================================================== */
+
+.pie-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+}
+
+.pie-chart-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.pie-chart-container {
+  flex: 1;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading state */
+.pie-chart-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 300px;
+}
+
+.pie-chart-loading-text {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Empty state */
+.pie-chart-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.pie-chart-empty-text {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+/* Custom tooltip */
+.pie-chart-tooltip {
+  background: var(--neu-bg);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  box-shadow: 4px 4px 8px var(--neu-shadow-dark),
+              -4px -4px 8px var(--neu-shadow-light);
+}
+
+.pie-chart-tooltip-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+
+.pie-chart-tooltip-value {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Custom legend */
+.pie-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 1rem 0 0 0;
+}
+
+.pie-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  cursor: default;
+}
+
+.pie-chart-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.pie-chart-legend-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Responsive adjustments for pie chart */
+@media (max-width: 768px) {
+  .pie-chart-card {
+    min-height: 350px;
+  }
+
+  .pie-chart-container {
+    min-height: 250px;
+  }
+
+  .pie-chart-loading,
+  .pie-chart-empty {
+    min-height: 250px;
+  }
+
+  .pie-chart-legend {
+    gap: 0.5rem;
+  }
+
+  .pie-chart-legend-text {
+    font-size: 0.6875rem;
+  }
+}
+
+/* ==========================================================================
+   StatsPage Component Styles
+   ========================================================================== */
+
+.stats-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Summary Stats Row */
+.stats-page-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.stats-page-summary-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 1rem;
+  text-align: center;
+}
+
+.stats-page-summary-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.stats-page-summary-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Charts Grid */
+.stats-page-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Model Breakdown Table */
+.stats-page-table-container {
+  overflow-x: auto;
+}
+
+.stats-page-table-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.stats-page-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats-page-table thead {
+  background: var(--neu-bg);
+}
+
+.stats-page-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 2px solid var(--neu-shadow-dark);
+  background: transparent;
+}
+
+.stats-page-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(163, 177, 198, 0.3);
+  color: var(--text-primary);
+}
+
+.stats-page-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.stats-page-table-model {
+  font-weight: 500;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Error State */
+.stats-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  gap: 1rem;
+}
+
+.stats-page-error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: var(--error-color);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.stats-page-error-message {
+  color: var(--error-color);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.stats-page-retry-button {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+/* Empty State */
+.stats-page-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.stats-page-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(163, 177, 198, 0.3);
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.stats-page-empty-message {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.stats-page-empty-hint {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Responsive adjustments for stats page */
+@media (max-width: 768px) {
+  .stats-page-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-page-charts {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-page-summary-value {
+    font-size: 1.25rem;
+  }
+
+  .stats-page-table th,
+  .stats-page-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .stats-page-table-model {
+    max-width: 150px;
+  }
+}
+
+/* ==========================================================================
+   LineChartCard Component Styles
+   ========================================================================== */
+
+.line-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 450px;
+}
+
+.line-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.line-chart-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.line-chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.line-chart-aggregation-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.line-chart-aggregation-select {
+  min-width: 100px;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.line-chart-container {
+  flex: 1;
+  min-height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading state */
+.line-chart-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 350px;
+}
+
+.line-chart-loading-text {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Empty state */
+.line-chart-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 350px;
+}
+
+.line-chart-empty-text {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+/* Custom tooltip */
+.line-chart-tooltip {
+  background: var(--neu-bg);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  box-shadow: 4px 4px 8px var(--neu-shadow-dark),
+              -4px -4px 8px var(--neu-shadow-light);
+  max-width: 300px;
+}
+
+.line-chart-tooltip-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--neu-shadow-dark);
+  padding-bottom: 0.5rem;
+}
+
+.line-chart-tooltip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.line-chart-tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+}
+
+.line-chart-tooltip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.line-chart-tooltip-value {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Responsive adjustments for line chart */
+@media (max-width: 768px) {
+  .line-chart-card {
+    min-height: 400px;
+  }
+
+  .line-chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .line-chart-container {
+    min-height: 300px;
+  }
+
+  .line-chart-loading,
+  .line-chart-empty {
+    min-height: 300px;
+  }
+
+  .line-chart-title {
+    font-size: 1rem;
+  }
 }

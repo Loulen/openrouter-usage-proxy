@@ -86,3 +86,156 @@ export interface DashboardProps {
   /** Whether data is currently loading */
   loading?: boolean;
 }
+
+/**
+ * Filter parameters for logs and stats API requests
+ * Used for model and time-window filtering
+ */
+export interface FilterParams {
+  /** Filter by model name (exact match) */
+  model?: string;
+  /** Filter logs from this date (ISO 8601) */
+  from?: string;
+  /** Filter logs to this date (ISO 8601) */
+  to?: string;
+}
+
+/**
+ * Statistics breakdown for a single model
+ * Used for pie chart visualization and model comparison
+ */
+export interface ModelStats {
+  /** Model identifier (e.g., "anthropic/claude-3-opus") */
+  model: string;
+  /** Number of requests for this model */
+  request_count: number;
+  /** Total tokens used by this model */
+  total_tokens: number;
+  /** Total cost in USD for this model */
+  total_cost: number;
+}
+
+/**
+ * Data point for pie chart visualization
+ * Format compatible with recharts PieChart component
+ */
+export interface ChartDataPoint {
+  /** Display name for the segment */
+  name: string;
+  /** Numeric value for the segment */
+  value: number;
+  /** Optional color for the segment */
+  fill?: string;
+}
+
+/**
+ * State for the useModels hook
+ */
+export interface UseModelsState {
+  /** Array of available model names */
+  models: string[];
+  /** Loading state indicator */
+  loading: boolean;
+  /** Error state */
+  error: Error | null;
+}
+
+/**
+ * Props for Filters component
+ */
+export interface FiltersProps {
+  /** Current filter state */
+  filters: FilterParams;
+  /** Callback when filters change */
+  onFiltersChange: (filters: FilterParams) => void;
+  /** Array of available models for dropdown */
+  models: string[];
+  /** Whether model list is loading */
+  modelsLoading?: boolean;
+}
+
+/**
+ * Props for PieChartCard component
+ */
+export interface PieChartCardProps {
+  /** Title displayed above the chart */
+  title: string;
+  /** Data points for the pie chart */
+  data: ChartDataPoint[];
+  /** Whether data is loading */
+  loading?: boolean;
+  /** Chart color scheme (optional) */
+  colors?: string[];
+}
+
+/**
+ * Props for StatsPage component
+ */
+export interface StatsPageProps {
+  /** Current filter state */
+  filters: FilterParams;
+  /** Whether model stats data is loading */
+  loading?: boolean;
+}
+
+/**
+ * Props for NavBar component
+ */
+export interface NavBarProps {
+  /** Currently active page */
+  activePage: 'dashboard' | 'stats';
+  /** Callback when page changes */
+  onPageChange: (page: 'dashboard' | 'stats') => void;
+}
+
+/**
+ * Aggregation period for time-series data
+ * Controls how data points are grouped in time
+ */
+export type AggregationPeriod = 'hour' | 'day' | 'week';
+
+/**
+ * Time-series data point for consumption over time
+ * Used for line chart visualization
+ */
+export interface TimeSeriesDataPoint {
+  /** Period start timestamp (ISO 8601 or formatted string) */
+  period: string;
+  /** Model identifier */
+  model: string;
+  /** Number of requests in this period */
+  request_count: number;
+  /** Total tokens used in this period */
+  total_tokens: number;
+  /** Total cost in USD for this period */
+  total_cost: number;
+}
+
+/**
+ * Line chart data structure for recharts
+ * Each data point represents a time period with values per model
+ */
+export interface LineChartDataPoint {
+  /** Period label for x-axis */
+  period: string;
+  /** Dynamic keys for each model's value */
+  [model: string]: string | number;
+}
+
+/**
+ * Props for LineChartCard component
+ */
+export interface LineChartCardProps {
+  /** Title displayed above the chart */
+  title: string;
+  /** Time-series data points from API */
+  data: TimeSeriesDataPoint[];
+  /** Metric to display (requests, tokens, or cost) */
+  metric: 'request_count' | 'total_tokens' | 'total_cost';
+  /** Whether data is loading */
+  loading?: boolean;
+  /** Current aggregation period */
+  aggregation: AggregationPeriod;
+  /** Callback when aggregation changes */
+  onAggregationChange: (aggregation: AggregationPeriod) => void;
+}

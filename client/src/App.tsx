@@ -1,15 +1,46 @@
+import { useState } from 'react';
 import './App.css';
 import { useLogs } from './hooks/useLogs';
+import { useModels } from './hooks/useModels';
 import { Dashboard } from './components/Dashboard';
 import { LogsTable } from './components/LogsTable';
+import { NavBar } from './components/NavBar';
+import { Filters } from './components/Filters';
+import { StatsPage } from './components/StatsPage';
+import type { FilterParams } from './types';
 
 /**
  * Main application component for the OpenRouter Usage Dashboard
- * Combines Dashboard stats and LogsTable into a unified view
+ * Combines Dashboard stats, LogsTable, and StatsPage with navigation and filtering
  * Handles loading, error, and empty states at the top level
+ * Uses simple page state for navigation (no React Router)
  */
 function App(): JSX.Element {
-  const { logs, stats, loading, error, refetch } = useLogs();
+  // Page navigation state
+  const [activePage, setActivePage] = useState<'dashboard' | 'stats'>('dashboard');
+
+  // Filter state shared across all views
+  const [filters, setFilters] = useState<FilterParams>({});
+
+  // Fetch logs and stats with current filters
+  const { logs, stats, loading, error, refetch } = useLogs(filters);
+
+  // Fetch available models for filter dropdown
+  const { models, loading: modelsLoading } = useModels();
+
+  /**
+   * Handle filter changes from the Filters component
+   */
+  const handleFiltersChange = (newFilters: FilterParams) => {
+    setFilters(newFilters);
+  };
+
+  /**
+   * Handle page navigation
+   */
+  const handlePageChange = (page: 'dashboard' | 'stats') => {
+    setActivePage(page);
+  };
 
   return (
     <div className="container app">
@@ -25,6 +56,19 @@ function App(): JSX.Element {
         </button>
       </header>
 
+      {/* Navigation */}
+      <NavBar activePage={activePage} onPageChange={handlePageChange} />
+
+      {/* Filters */}
+      <section className="app-filters">
+        <Filters
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          models={models}
+          modelsLoading={modelsLoading}
+        />
+      </section>
+
       {error && (
         <div className="error app-error" role="alert">
           <strong>Error:</strong> {error.message}
@@ -35,11 +79,17 @@ function App(): JSX.Element {
       )}
 
       <main className="app-main">
-        <Dashboard stats={stats} loading={loading} />
-        <LogsTable logs={logs} loading={loading} />
+        {activePage === 'dashboard' ? (
+          <>
+            <Dashboard stats={stats} loading={loading} />
+            <LogsTable logs={logs} loading={loading} />
+          </>
+        ) : (
+          <StatsPage filters={filters} loading={loading} />
+        )}
       </main>
 
-      {loading && logs.length === 0 && (
+      {loading && logs.length === 0 && activePage === 'dashboard' && (
         <div className="loading-overlay">
           <div className="spinner" aria-label="Loading data"></div>
           <p className="text-muted">Loading usage data...</p>

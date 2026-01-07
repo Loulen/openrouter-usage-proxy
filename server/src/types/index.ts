@@ -151,3 +151,69 @@ export interface LogsQueryParams {
   /** Number of results to skip (for pagination) */
   offset?: number;
 }
+
+/**
+ * Filter parameters for logs and stats API endpoints
+ * Used for model and time-window filtering
+ */
+export interface FilterParams {
+  /** Filter by model name (exact match) */
+  model?: string;
+  /** Filter logs from this date (ISO 8601) */
+  from?: string;
+  /** Filter logs to this date (ISO 8601) */
+  to?: string;
+}
+
+/**
+ * Statistics breakdown for a single model
+ * Used for pie chart visualization and model comparison
+ */
+export interface ModelStats {
+  /** Model identifier (e.g., "anthropic/claude-3-opus") */
+  model: string;
+  /** Number of requests for this model */
+  request_count: number;
+  /** Total tokens used by this model */
+  total_tokens: number;
+  /** Total cost in USD for this model */
+  total_cost: number;
+}
+
+/**
+ * Response from the /api/logs/models endpoint
+ * Returns a list of distinct model names used in the logs
+ */
+export type ModelsResponse = string[];
+
+/**
+ * Aggregation period for time-series data
+ * Controls how data points are grouped in time
+ */
+export type AggregationPeriod = 'hour' | 'day' | 'week';
+
+/**
+ * Time-series data point for consumption over time
+ * Used for line chart visualization
+ */
+export interface TimeSeriesDataPoint {
+  /** Period start timestamp (ISO 8601) */
+  period: string;
+  /** Model identifier */
+  model: string;
+  /** Number of requests in this period */
+  request_count: number;
+  /** Total tokens used in this period */
+  total_tokens: number;
+  /** Total cost in USD for this period */
+  total_cost: number;
+}
+
+/**
+ * Filter parameters for time-series endpoint
+ * Extends FilterParams with aggregation period
+ */
+export interface TimeSeriesFilterParams extends FilterParams {
+  /** Aggregation period (hour, day, week) */
+  aggregation?: AggregationPeriod;
+}

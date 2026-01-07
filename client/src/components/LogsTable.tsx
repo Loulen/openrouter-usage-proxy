@@ -55,7 +55,7 @@ export function LogsTable({ logs, loading }: LogsTableProps): JSX.Element {
   // Show empty state when no logs and not loading
   if (!loading && logs.length === 0) {
     return (
-      <div className="card">
+      <div className="neu-card">
         <div className="empty-state">
           <h3>No logs yet</h3>
           <p>Make an API request through the proxy to see usage data here.</p>
@@ -65,7 +65,7 @@ export function LogsTable({ logs, loading }: LogsTableProps): JSX.Element {
   }
 
   return (
-    <div className="card logs-table-container">
+    <div className="neu-card logs-table-container">
       <table>
         <thead>
           <tr>

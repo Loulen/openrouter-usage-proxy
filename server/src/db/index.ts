@@ -6,8 +6,27 @@
 
 import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
-import { initializeSchema, INSERT_USAGE_LOG, SELECT_ALL_LOGS, SELECT_USAGE_STATS } from './schema.js';
-import type { UsageLog, UsageLogInput, UsageStats } from '../types/index.js';
+import {
+  initializeSchema,
+  INSERT_USAGE_LOG,
+  SELECT_ALL_LOGS,
+  SELECT_USAGE_STATS,
+  SELECT_DISTINCT_MODELS,
+  buildFilteredLogsQuery,
+  buildFilteredStatsQuery,
+  buildFilteredModelStatsQuery,
+  buildTimeSeriesQuery,
+} from './schema.js';
+import type {
+  UsageLog,
+  UsageLogInput,
+  UsageStats,
+  FilterParams,
+  ModelStats,
+  ModelsResponse,
+  TimeSeriesDataPoint,
+  AggregationPeriod,
+} from '../types/index.js';
 
 /**
  * Database file path - stored in server root directory
@@ -47,6 +66,11 @@ const selectAllStatement = db.prepare(SELECT_ALL_LOGS);
  * Prepared statement for getting usage statistics
  */
 const selectStatsStatement = db.prepare(SELECT_USAGE_STATS);
+
+/**
+ * Prepared statement for getting distinct model names
+ */
+const selectModelsStatement = db.prepare(SELECT_DISTINCT_MODELS);
 
 /**
  * Insert a new usage log entry into the database
@@ -100,4 +124,88 @@ export function getStats(): UsageStats {
  */
 export function closeDatabase(): void {
   db.close();
+}
+
+/**
+ * Get all distinct model names from the database
+ * Used to populate the model filter dropdown
+ *
+ * @returns Array of model name strings
+ */
+export function getModels(): ModelsResponse {
+  const rows = selectModelsStatement.all() as { model: string }[];
+  return rows.map((row) => row.model);
+}
+
+/**
+ * Get usage logs with optional filtering
+ * Supports filtering by model name and/or date range
+ * Returns logs ordered by timestamp descending (most recent first)
+ *
+ * @param filters - Optional filter parameters (model, from, to)
+ * @returns Array of filtered usage log entries
+ */
+export function getFilteredLogs(filters: FilterParams = {}): UsageLog[] {
+  // If no filters provided, use the prepared statement for better performance
+  if (!filters.model && !filters.from && !filters.to) {
+    return selectAllStatement.all() as UsageLog[];
+  }
+
+  // Build dynamic query based on provided filters
+  const { sql, params } = buildFilteredLogsQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.all(...params) as UsageLog[];
+}
+
+/**
+ * Get usage statistics with optional filtering
+ * Supports filtering by model name and/or date range
+ * Returns total request count, total tokens, and total cost
+ *
+ * @param filters - Optional filter parameters (model, from, to)
+ * @returns Filtered usage statistics object
+ */
+export function getFilteredStats(filters: FilterParams = {}): UsageStats {
+  // If no filters provided, use the prepared statement for better performance
+  if (!filters.model && !filters.from && !filters.to) {
+    return selectStatsStatement.get() as UsageStats;
+  }
+
+  // Build dynamic query based on provided filters
+  const { sql, params } = buildFilteredStatsQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.get(...params) as UsageStats;
+}
+
+/**
+ * Get usage statistics grouped by model
+ * Used for pie chart visualization showing model usage distribution
+ * Supports optional date range filtering
+ *
+ * @param filters - Optional filter parameters (from, to)
+ * @returns Array of per-model statistics
+ */
+export function getModelStats(filters: { from?: string; to?: string } = {}): ModelStats[] {
+  // Build dynamic query based on provided filters
+  const { sql, params } = buildFilteredModelStatsQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.all(...params) as ModelStats[];
+}
+
+/**
+ * Get time-series usage data grouped by period and model
+ * Used for line chart visualization showing consumption over time
+ * Supports date range filtering and aggregation period selection
+ *
+ * @param filters - Optional filter parameters (from, to, aggregation)
+ * @returns Array of time-series data points
+ */
+export function getTimeSeries(filters: {
+  from?: string;
+  to?: string;
+  aggregation?: AggregationPeriod;
+} = {}): TimeSeriesDataPoint[] {
+  const { sql, params } = buildTimeSeriesQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.all(...params) as TimeSeriesDataPoint[];
 }
