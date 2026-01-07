@@ -19,6 +19,8 @@ dotenv.config();
 
 // Lazy-loaded imports (will be loaded after dotenv.config())
 let logsRouter: typeof import('../server/src/routes/logs.js').default;
+let settingsRouter: typeof import('../server/src/routes/settings.js').default;
+let apiKeysRouter: typeof import('../server/src/routes/api-keys.js').default;
 let proxyMiddleware: typeof import('../server/src/middleware/proxy.js').proxyMiddleware;
 let closeDatabase: typeof import('../server/src/db/index.js').closeDatabase;
 
@@ -60,13 +62,17 @@ export interface ServerOptions {
 export async function startServer(port: number, options: ServerOptions = {}): Promise<ServerInstance> {
   const { serveStaticFiles = true } = options;
   // Dynamically import server modules (ensures dotenv is loaded first)
-  const [logsModule, proxyModule, dbModule] = await Promise.all([
+  const [logsModule, settingsModule, apiKeysModule, proxyModule, dbModule] = await Promise.all([
     import('../server/src/routes/logs.js'),
+    import('../server/src/routes/settings.js'),
+    import('../server/src/routes/api-keys.js'),
     import('../server/src/middleware/proxy.js'),
     import('../server/src/db/index.js'),
   ]);
 
   logsRouter = logsModule.default;
+  settingsRouter = settingsModule.default;
+  apiKeysRouter = apiKeysModule.default;
   proxyMiddleware = proxyModule.proxyMiddleware;
   closeDatabase = dbModule.closeDatabase;
 
@@ -98,6 +104,28 @@ export async function startServer(port: number, options: ServerOptions = {}): Pr
    * Mounted BEFORE proxy so /api/* requests are handled here
    */
   app.use('/api/logs', logsRouter);
+
+  /**
+   * Settings API Routes - Application settings management
+   *
+   * Endpoints:
+   * - GET /api/settings - Returns current settings
+   * - PUT /api/settings - Updates settings
+   */
+  app.use('/api/settings', settingsRouter);
+
+  /**
+   * API Keys Routes - API key CRUD and OpenRouter balance fetching
+   *
+   * Endpoints:
+   * - GET /api/api-keys - Returns all API keys (masked)
+   * - POST /api/api-keys - Creates new API key
+   * - PUT /api/api-keys/:id - Updates API key
+   * - DELETE /api/api-keys/:id - Deletes API key
+   * - GET /api/api-keys/balances - Fetches all keys' balances from OpenRouter
+   * - GET /api/api-keys/:id/balance - Fetches single key's balance from OpenRouter
+   */
+  app.use('/api/api-keys', apiKeysRouter);
 
   /**
    * Health check endpoint for monitoring
@@ -185,6 +213,8 @@ export async function startServer(port: number, options: ServerOptions = {}): Pr
     server.on('listening', () => {
       process.stdout.write(`[server] OpenRouter Usage Proxy running on http://localhost:${port}\n`);
       process.stdout.write(`[server] Dashboard API: http://localhost:${port}/api/logs\n`);
+      process.stdout.write(`[server] Settings API: http://localhost:${port}/api/settings\n`);
+      process.stdout.write(`[server] API Keys API: http://localhost:${port}/api/api-keys\n`);
       process.stdout.write(`[server] Proxy endpoint: http://localhost:${port}/openrouter/api/v1/chat/completions\n`);
 
       resolve({

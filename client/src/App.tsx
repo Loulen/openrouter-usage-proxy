@@ -2,12 +2,15 @@ import { useState } from 'react';
 import './App.css';
 import { useLogs } from './hooks/useLogs';
 import { useModels } from './hooks/useModels';
+import { useSettings } from './hooks/useSettings';
+import { useApiKeys } from './hooks/useApiKeys';
 import { Dashboard } from './components/Dashboard';
 import { LogsTable } from './components/LogsTable';
 import { NavBar } from './components/NavBar';
 import { Filters } from './components/Filters';
 import { StatsPage } from './components/StatsPage';
-import type { FilterParams } from './types';
+import { SettingsPage } from './components/SettingsPage';
+import type { FilterParams, PageType } from './types';
 
 /**
  * Main application component for the OpenRouter Usage Dashboard
@@ -17,7 +20,7 @@ import type { FilterParams } from './types';
  */
 function App(): JSX.Element {
   // Page navigation state
-  const [activePage, setActivePage] = useState<'dashboard' | 'stats'>('dashboard');
+  const [activePage, setActivePage] = useState<PageType>('dashboard');
 
   // Filter state shared across all views
   const [filters, setFilters] = useState<FilterParams>({});
@@ -27,6 +30,12 @@ function App(): JSX.Element {
 
   // Fetch available models for filter dropdown
   const { models, loading: modelsLoading } = useModels();
+
+  // Fetch settings for API key tracking feature
+  const { settings } = useSettings();
+
+  // Fetch API keys for filter dropdown
+  const { apiKeys } = useApiKeys();
 
   /**
    * Handle filter changes from the Filters component
@@ -38,7 +47,7 @@ function App(): JSX.Element {
   /**
    * Handle page navigation
    */
-  const handlePageChange = (page: 'dashboard' | 'stats') => {
+  const handlePageChange = (page: PageType) => {
     setActivePage(page);
   };
 
@@ -66,6 +75,8 @@ function App(): JSX.Element {
           onFiltersChange={handleFiltersChange}
           models={models}
           modelsLoading={modelsLoading}
+          apiKeys={apiKeys}
+          apiKeyTrackingEnabled={settings?.apiKeyTrackingEnabled ?? false}
         />
       </section>
 
@@ -79,13 +90,21 @@ function App(): JSX.Element {
       )}
 
       <main className="app-main">
-        {activePage === 'dashboard' ? (
+        {activePage === 'dashboard' && (
           <>
-            <Dashboard stats={stats} loading={loading} />
+            <Dashboard
+              stats={stats}
+              loading={loading}
+              onGoToSettings={() => handlePageChange('settings')}
+            />
             <LogsTable logs={logs} loading={loading} />
           </>
-        ) : (
+        )}
+        {activePage === 'stats' && (
           <StatsPage filters={filters} loading={loading} />
+        )}
+        {activePage === 'settings' && (
+          <SettingsPage onNavigate={handlePageChange} />
         )}
       </main>
 

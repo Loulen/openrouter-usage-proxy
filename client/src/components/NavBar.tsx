@@ -24,6 +24,14 @@ export function NavBar({ activePage, onPageChange }: NavBarProps): JSX.Element {
       >
         Statistics
       </button>
+      <button
+        type="button"
+        className={`app-nav-button${activePage === 'settings' ? ' active' : ''}`}
+        onClick={() => onPageChange('settings')}
+        aria-current={activePage === 'settings' ? 'page' : undefined}
+      >
+        Settings
+      </button>
     </nav>
   );
 }
