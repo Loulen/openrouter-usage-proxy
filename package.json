@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tsx cli/index.ts",
     "build": "npm run build:client && npm run build:server && npm run bundle",
+    "build:all": "npm run build:client && npm run build:server && npm run bundle",
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
     "bundle": "node esbuild.config.mjs",

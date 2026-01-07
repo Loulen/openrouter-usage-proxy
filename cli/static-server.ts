@@ -14,18 +14,25 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import serveStatic from 'serve-static';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
 import type { Server } from 'http';
 
-// Get current file directory for resolving paths
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+/**
+ * Get the directory containing this file.
+ * Works in both ESM (with import.meta.url) and CJS (with __dirname) contexts.
+ * For bundled CJS output, we use process.cwd() as the base since the bundle
+ * runs from the project root.
+ */
+function getCurrentDir(): string {
+  // In CJS bundle, __dirname may be available but points to wrong location
+  // Use process.cwd() which should be the project root when running the CLI
+  return process.cwd();
+}
 
 /**
- * Default path to client dist directory (relative to project root)
+ * Default path to client dist directory (relative to project root/cwd)
  */
-const DEFAULT_CLIENT_DIST_PATH = path.resolve(__dirname, '../client/dist');
+const DEFAULT_CLIENT_DIST_PATH = path.resolve(getCurrentDir(), 'client/dist');
 
 /**
  * Static server configuration options
