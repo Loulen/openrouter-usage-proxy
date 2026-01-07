@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import type { UsageLog, UsageStats, UseLogsState, FilterParams } from '../types';
 
 /**
+ * Hash map type for API key hash to label mapping
+ * Key is the SHA-256 hash, value is the user-friendly label
+ */
+type ApiKeyHashMap = Record<string, string>;
+
+/**
  * Builds a query string from filter parameters
  * Only includes non-empty filter values
  *
@@ -30,8 +36,24 @@ function buildQueryString(filters?: FilterParams): string {
 }
 
 /**
+ * Enriches usage logs with API key labels by looking up hashes in the hash map
+ * Assigns "unknown" for null hashes or unmatched hashes
+ *
+ * @param logs - Array of usage logs from the API
+ * @param hashMap - Mapping of API key hashes to labels
+ * @returns Logs enriched with api_key_label property
+ */
+function enrichLogsWithLabels(logs: UsageLog[], hashMap: ApiKeyHashMap): UsageLog[] {
+  return logs.map((log) => ({
+    ...log,
+    api_key_label: log.api_key_hash ? (hashMap[log.api_key_hash] ?? 'unknown') : 'unknown',
+  }));
+}
+
+/**
  * Custom hook for fetching usage logs and statistics from the API
  * Fetches both /api/logs and /api/logs/stats endpoints
+ * Also fetches API key hash map and enriches logs with labels
  * Supports optional filter parameters for model and date range filtering
  *
  * @param filters - Optional filter parameters (model, from, to)
@@ -50,13 +72,14 @@ export function useLogs(filters?: FilterParams): UseLogsState & { refetch: () =>
     try {
       const queryString = buildQueryString(filters);
 
-      // Fetch logs and stats in parallel for better performance
-      const [logsResponse, statsResponse] = await Promise.all([
+      // Fetch logs, stats, and hash map in parallel for better performance
+      const [logsResponse, statsResponse, hashMapResponse] = await Promise.all([
         fetch(`/api/logs${queryString}`),
         fetch(`/api/logs/stats${queryString}`),
+        fetch('/api/api-keys/hash-map'),
       ]);
 
-      // Check for HTTP errors
+      // Check for HTTP errors on logs and stats (required endpoints)
       if (!logsResponse.ok) {
         throw new Error(`Failed to fetch logs: ${logsResponse.status} ${logsResponse.statusText}`);
       }
@@ -68,7 +91,21 @@ export function useLogs(filters?: FilterParams): UseLogsState & { refetch: () =>
       const logsData: UsageLog[] = await logsResponse.json();
       const statsData: UsageStats = await statsResponse.json();
 
-      setLogs(logsData);
+      // Parse hash map response - don't fail if hash map fetch fails
+      // This allows logs display to work even if API key tracking is unavailable
+      let hashMap: ApiKeyHashMap = {};
+      if (hashMapResponse.ok) {
+        try {
+          hashMap = await hashMapResponse.json();
+        } catch {
+          // Silently ignore JSON parse errors for hash map
+        }
+      }
+
+      // Enrich logs with API key labels
+      const enrichedLogs = enrichLogsWithLabels(logsData, hashMap);
+
+      setLogs(enrichedLogs);
       setStats(statsData);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));

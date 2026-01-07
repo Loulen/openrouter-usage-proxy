@@ -27,6 +27,10 @@ export interface UsageLog {
   status_code: number | null;
   /** Record creation timestamp */
   created_at: string;
+  /** SHA-256 hash of the API key used for this request (null if tracking disabled) */
+  api_key_hash?: string | null;
+  /** Resolved label for the API key (enriched client-side from hash map) */
+  api_key_label?: string;
 }
 
 /**
