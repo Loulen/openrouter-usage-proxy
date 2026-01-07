@@ -1,6 +1,6 @@
 {
   "name": "openrouter-usage-proxy",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "CLI executable for OpenRouter Usage Proxy - launches both server and client with configurable ports",
   "type": "module",
   "bin": {
