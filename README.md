@@ -304,7 +304,29 @@ The SQLite database stores usage logs in the `usage_logs` table:
 
 ### Publishing
 
-This package is automatically published to npm when a version tag is pushed to GitHub:
+This package uses **npm Trusted Publishing with OIDC** - no tokens required!
+
+#### First-Time Setup
+
+1. Publish your package manually once (requires npm account with 2FA):
+   ```bash
+   npm login
+   npm publish --access public
+   ```
+
+2. Configure trusted publisher on npmjs.com:
+   - Go to: `https://www.npmjs.com/package/openrouter-usage-proxy/access`
+   - Click "Add trusted publisher"
+   - Select **GitHub Actions**
+   - Fill in:
+     - Organization/User: `Loulen`
+     - Repository: `openrouter-usage-proxy`
+     - Workflow filename: `publish.yml`
+     - Environment: (leave blank)
+
+#### Publishing Updates
+
+Once configured, simply push a version tag:
 
 ```bash
 # Update version in package.json, commit, and create a tag
@@ -313,11 +335,10 @@ git push && git push --tags
 
 # GitHub Actions will automatically:
 # 1. Build the package
-# 2. Publish to npm
-# 3. Create a GitHub release
+# 2. Publish to npm via OIDC (no token needed!)
+# 3. Include provenance attestations
+# 4. Create a GitHub release
 ```
-
-**Note:** You'll need to set up an `NPM_TOKEN` secret in your GitHub repository settings with a valid npm token.
 
 ## Limitations
 
