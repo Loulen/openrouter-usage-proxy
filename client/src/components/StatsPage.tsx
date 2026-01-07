@@ -138,8 +138,9 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
       const data: TimeSeriesDataPoint[] = await response.json();
       setTimeSeries(data);
     } catch (err) {
-      // Don't override main error state, just log
-      console.error('Failed to fetch time series:', err);
+      // Don't override main error state, silently handle time series fetch errors
+      // The main model stats error state already covers critical failures
+      void err;
     } finally {
       setTimeSeriesLoading(false);
     }

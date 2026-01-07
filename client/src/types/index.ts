@@ -269,6 +269,21 @@ export interface ApiKeyConfig {
 }
 
 /**
+ * API key with masked key value (for display purposes)
+ * Returned by GET /api/api-keys endpoint
+ */
+export interface MaskedApiKey {
+  /** Unique identifier (UUID) */
+  id: string;
+  /** User-friendly name for the API key */
+  label: string;
+  /** ISO 8601 timestamp of when the key was added */
+  createdAt: string;
+  /** Masked API key (e.g., "sk-or-...xxxx") */
+  maskedKey: string;
+}
+
+/**
  * Application settings for API key tracking feature
  * Mirrors server/src/types/settings.ts Settings
  */
@@ -384,8 +399,8 @@ export interface UseApiKeysState {
  * Props for FiltersProps extended with API key support
  */
 export interface FiltersPropsWithApiKeys extends FiltersProps {
-  /** Array of available API keys for dropdown */
-  apiKeys?: ApiKeyConfig[];
+  /** Array of available API keys for dropdown (can be masked or full config) */
+  apiKeys?: MaskedApiKey[];
   /** Whether API key tracking is enabled */
   apiKeyTrackingEnabled?: boolean;
 }

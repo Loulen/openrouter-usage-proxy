@@ -2,6 +2,8 @@ import { useState } from 'react';
 import './App.css';
 import { useLogs } from './hooks/useLogs';
 import { useModels } from './hooks/useModels';
+import { useSettings } from './hooks/useSettings';
+import { useApiKeys } from './hooks/useApiKeys';
 import { Dashboard } from './components/Dashboard';
 import { LogsTable } from './components/LogsTable';
 import { NavBar } from './components/NavBar';
@@ -28,6 +30,12 @@ function App(): JSX.Element {
 
   // Fetch available models for filter dropdown
   const { models, loading: modelsLoading } = useModels();
+
+  // Fetch settings for API key tracking feature
+  const { settings } = useSettings();
+
+  // Fetch API keys for filter dropdown
+  const { apiKeys } = useApiKeys();
 
   /**
    * Handle filter changes from the Filters component
@@ -67,6 +75,8 @@ function App(): JSX.Element {
           onFiltersChange={handleFiltersChange}
           models={models}
           modelsLoading={modelsLoading}
+          apiKeys={apiKeys}
+          apiKeyTrackingEnabled={settings?.apiKeyTrackingEnabled ?? false}
         />
       </section>
 

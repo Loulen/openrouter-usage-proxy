@@ -4,18 +4,8 @@ import type {
   ApiKeyInput,
   ApiKeyUpdateInput,
   UseApiKeysState,
+  MaskedApiKey,
 } from '../types';
-
-/**
- * API key configuration as returned from GET /api/api-keys
- * Note: The actual key is masked for security
- */
-interface MaskedApiKey {
-  id: string;
-  label: string;
-  createdAt: string;
-  maskedKey: string;
-}
 
 /**
  * Custom hook for managing API keys and fetching balance information
