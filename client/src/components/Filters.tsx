@@ -1,6 +1,6 @@
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import type { FiltersProps, FilterParams } from '../types';
+import type { FiltersPropsWithApiKeys, FilterParams } from '../types';
 
 /**
  * Truncate a model name for display in the dropdown
@@ -46,16 +46,33 @@ function formatDateToISO(date: Date | null): string | undefined {
 }
 
 /**
- * Filters component for filtering logs and stats by model and date range
- * Provides a model dropdown and date range pickers with neumorphism styling
+ * Truncate an API key label for display in the dropdown
+ * Shows full label on hover via title attribute
+ * @param label - The API key label
+ * @param maxLength - Maximum characters to display
+ * @returns Truncated label
+ */
+function truncateApiKeyLabel(label: string, maxLength: number = 30): string {
+  if (label.length <= maxLength) {
+    return label;
+  }
+  return `${label.substring(0, maxLength - 3)}...`;
+}
+
+/**
+ * Filters component for filtering logs and stats by model, date range, and optionally API key
+ * Provides dropdowns and date range pickers with neumorphism styling
  * Handles edge cases like invalid date ranges and long model names
+ * API key filter is only shown when apiKeyTrackingEnabled is true and apiKeys are provided
  */
 export function Filters({
   filters,
   onFiltersChange,
   models,
   modelsLoading = false,
-}: FiltersProps): JSX.Element {
+  apiKeys = [],
+  apiKeyTrackingEnabled = false,
+}: FiltersPropsWithApiKeys): JSX.Element {
   // Parse current filter dates
   const fromDate = parseDate(filters.from);
   const toDate = parseDate(filters.to);
@@ -68,6 +85,17 @@ export function Filters({
     onFiltersChange({
       ...filters,
       model: newModel,
+    });
+  };
+
+  /**
+   * Handle API key selection change
+   */
+  const handleApiKeyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newApiKeyId = event.target.value || undefined;
+    onFiltersChange({
+      ...filters,
+      apiKeyId: newApiKeyId,
     });
   };
 
@@ -119,7 +147,10 @@ export function Filters({
   };
 
   // Check if any filters are active
-  const hasActiveFilters = filters.model || filters.from || filters.to;
+  const hasActiveFilters = filters.model || filters.from || filters.to || filters.apiKeyId;
+
+  // Determine if API key filter should be shown
+  const showApiKeyFilter = apiKeyTrackingEnabled && apiKeys.length > 0;
 
   return (
     <div className="filters">
@@ -144,6 +175,28 @@ export function Filters({
             ))}
           </select>
         </div>
+
+        {/* API Key Filter - only shown when tracking is enabled and keys exist */}
+        {showApiKeyFilter && (
+          <div className="filter-group">
+            <label className="filter-label" htmlFor="api-key-filter">
+              API Key
+            </label>
+            <select
+              id="api-key-filter"
+              className="neu-select filter-select"
+              value={filters.apiKeyId || ''}
+              onChange={handleApiKeyChange}
+            >
+              <option value="">All API Keys</option>
+              {apiKeys.map((apiKey) => (
+                <option key={apiKey.id} value={apiKey.id} title={apiKey.label}>
+                  {truncateApiKeyLabel(apiKey.label)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* From Date Filter */}
         <div className="filter-group">
