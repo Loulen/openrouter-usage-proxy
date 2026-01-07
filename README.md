@@ -1,21 +1,30 @@
 # OpenRouter Usage Proxy
 
-A transparent middleware proxy that intercepts all API calls to OpenRouter, logs detailed usage information including model, token counts, and costs, and displays this data through a React/Vite web dashboard.
+A transparent middleware proxy that intercepts API calls to OpenRouter, logs usage information (model, tokens, costs, API keys), and displays analytics through a web dashboard.
 
 ## Overview
 
-This tool acts as a **transparent proxy** between clients and OpenRouter's API. It passes through client requests (including their own API keys) unchanged while capturing request/response data for usage tracking. The proxy itself does NOT require or inject any API key - clients must provide their own OpenRouter API keys.
+This tool acts as a **transparent proxy** between clients and OpenRouter's API. It passes through client requests unchanged while capturing request/response data for usage tracking, including per-API-key analytics. The proxy does NOT require or inject any API key - clients provide their own.
 
 ### Features
 
 - Proxy API calls to OpenRouter with transparent passthrough
 - Log usage data: model, prompt tokens, completion tokens, and cost
 - Extract cost information from OpenRouter API responses
+- **API key monitoring** - Track usage per API key with filtering and statistics
 - SQLite database for persistent storage
 - React web dashboard for viewing logs and statistics
 - Summary statistics: total tokens, total cost, request count
 - **CLI executable** with configurable ports for easy deployment
 - Available as a globally installable npm package
+
+## Use Cases
+
+- **Track costs across tools** - Monitor spending from multiple AI coding assistants in one dashboard
+- **Per-API-key analytics** - Track usage and costs for each API key separately
+- **Debug API requests** - See exactly what's being sent to OpenRouter and what's returned
+- **Usage analytics** - Understand which models you use most and their token consumption
+- **Team visibility** - Share a dashboard showing API usage across your development team
 
 ## Architecture
 
@@ -42,69 +51,80 @@ This tool acts as a **transparent proxy** between clients and OpenRouter's API. 
 
 **Note:** Clients provide their own OpenRouter API keys. The proxy passes through all headers unchanged.
 
-## Project Structure
-
-```
-openrouter-usage-proxy/
-├── cli/                       # CLI entry point
-│   ├── index.ts              # Main CLI with Commander.js
-│   ├── server-runner.ts      # Express server runner
-│   └── static-server.ts      # Static file server
-├── server/                    # Backend proxy server
-│   ├── src/
-│   │   ├── index.ts          # Express app entry point
-│   │   ├── middleware/
-│   │   │   └── proxy.ts      # Proxy middleware
-│   │   ├── routes/
-│   │   │   └── logs.ts       # Log query endpoints
-│   │   ├── db/
-│   │   │   ├── index.ts      # Database connection
-│   │   │   └── schema.ts     # Table definitions
-│   │   └── types/
-│   │       └── index.ts      # TypeScript types
-│   ├── package.json
-│   └── tsconfig.json
-├── client/                    # React web dashboard
-│   ├── src/
-│   │   ├── main.tsx          # React entry point
-│   │   ├── App.tsx           # Root component
-│   │   ├── components/
-│   │   │   ├── Dashboard.tsx # Summary stats
-│   │   │   └── LogsTable.tsx # Logs display table
-│   │   ├── hooks/
-│   │   │   └── useLogs.ts    # Data fetching hook
-│   │   └── types/
-│   │       └── index.ts      # TypeScript types
-│   ├── vite.config.ts
-│   └── package.json
-├── scripts/                   # Build and utility scripts
-│   └── build-sea.sh          # SEA binary generation script
-├── .github/workflows/         # GitHub Actions
-│   ├── release.yml           # Automated release workflow
-│   └── ci.yml                # CI testing workflow
-├── .env.example               # Example environment variables
-├── esbuild.config.mjs        # esbuild bundler configuration
-├── sea-config.json           # Node.js SEA configuration
-└── README.md                  # This file
-```
-
 ## Quick Start
 
-### Installation
-
-Install globally via npm:
+**Prerequisites:** Node.js 20+ and an [OpenRouter API key](https://openrouter.ai/keys)
 
 ```bash
+# Install
 npm install -g openrouter-usage-proxy
+
+# Run
+openrouter-proxy
 ```
 
-That's it! The package includes everything needed: the proxy server, web dashboard, and all dependencies (including SQLite bindings).
+The proxy is now running at `http://localhost:3000`. Open your browser to see the dashboard.
 
-### Prerequisites
+## Integration Examples
 
-- Node.js 20+
-- npm
-- OpenRouter API key for your clients ([Get one here](https://openrouter.ai/keys))
+The proxy works with any tool that supports OpenRouter. Point the tool to `http://localhost:3000` instead of `https://openrouter.ai`.
+
+### Claude Code
+
+Set the base URL environment variable before launching Claude Code:
+
+```bash
+export OPENROUTER_BASE_URL=http://localhost:3000/openrouter/api
+claude
+```
+
+Or add it to your shell profile (`.bashrc`, `.zshrc`, etc.) for persistence:
+
+```bash
+echo 'export OPENROUTER_BASE_URL=http://localhost:3000/openrouter/api' >> ~/.bashrc
+```
+
+### Roocode (VS Code Extension)
+
+1. Open VS Code Settings (`Ctrl+,` or `Cmd+,`)
+2. Search for "Roocode" or navigate to the Roocode extension settings
+3. Find the **API Provider** section
+4. Check **"Use custom base URL"**
+5. Enter: `http://localhost:3000/openrouter/api/v1`
+6. Save and restart if prompted
+
+### Other OpenRouter-Compatible Tools
+
+For any tool that supports OpenRouter, look for settings like:
+- "Custom base URL"
+- "API endpoint"
+- "OpenRouter URL"
+
+Replace `https://openrouter.ai/api/v1` with `http://localhost:3000/openrouter/api/v1`
+
+### Basic Usage (curl)
+
+For testing or scripting, you can call the proxy directly:
+
+```bash
+curl -X POST http://localhost:3000/openrouter/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_OPENROUTER_API_KEY" \
+  -d '{
+    "model": "openai/gpt-3.5-turbo",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+### How It Works
+
+When you route requests through the proxy, it will:
+1. Pass through your request to OpenRouter (headers unchanged)
+2. Return the response to your client
+3. Log usage data (model, tokens, cost) to the database
+4. Display the log in the web dashboard at `http://localhost:3000`
+
+**Note**: This is a transparent proxy - each client must provide their own OpenRouter API key.
 
 ## CLI Usage
 
@@ -186,31 +206,6 @@ npm run dev
 # This will start both the server and serve the client
 ```
 
-### Using the Proxy
-
-Send API requests to the proxy instead of directly to OpenRouter. **You must include your own OpenRouter API key** in the Authorization header:
-
-```bash
-# Instead of: https://openrouter.ai/api/v1/chat/completions
-# Use: http://localhost:3000/v1/chat/completions
-
-curl -X POST http://localhost:3000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_OPENROUTER_API_KEY" \
-  -d '{
-    "model": "openai/gpt-3.5-turbo",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
-
-The proxy will:
-1. Pass through your request to OpenRouter (with your Authorization header unchanged)
-2. Return the response to your client
-3. Log the usage data (model, tokens, cost) to the database
-4. Display the log in the web dashboard
-
-**Note**: This is a transparent proxy - it does NOT inject its own API key. Each client must provide their own OpenRouter API key.
-
 ## Environment Variables
 
 | Variable | Required | Default | Description |
@@ -220,22 +215,77 @@ The proxy will:
 
 **Transparent Proxy:** This proxy does NOT require or use a server-side API key. Clients must provide their own OpenRouter API keys in the `Authorization` header of each request. The proxy passes through all headers unchanged.
 
-## Service URLs
+## Limitations
+
+- Streaming responses are not supported (responses are buffered for logging)
+- No authentication/authorization for the proxy
+- No rate limiting or caching
+- Single-user design (no multi-tenancy)
+
+## Technical Reference
+
+### Project Structure
+
+```
+openrouter-usage-proxy/
+├── cli/                       # CLI entry point
+│   ├── index.ts              # Main CLI with Commander.js
+│   ├── server-runner.ts      # Express server runner
+│   └── static-server.ts      # Static file server
+├── server/                    # Backend proxy server
+│   ├── src/
+│   │   ├── index.ts          # Express app entry point
+│   │   ├── middleware/
+│   │   │   └── proxy.ts      # Proxy middleware
+│   │   ├── routes/
+│   │   │   └── logs.ts       # Log query endpoints
+│   │   ├── db/
+│   │   │   ├── index.ts      # Database connection
+│   │   │   └── schema.ts     # Table definitions
+│   │   └── types/
+│   │       └── index.ts      # TypeScript types
+│   ├── package.json
+│   └── tsconfig.json
+├── client/                    # React web dashboard
+│   ├── src/
+│   │   ├── main.tsx          # React entry point
+│   │   ├── App.tsx           # Root component
+│   │   ├── components/
+│   │   │   ├── Dashboard.tsx # Summary stats
+│   │   │   └── LogsTable.tsx # Logs display table
+│   │   ├── hooks/
+│   │   │   └── useLogs.ts    # Data fetching hook
+│   │   └── types/
+│   │       └── index.ts      # TypeScript types
+│   ├── vite.config.ts
+│   └── package.json
+├── scripts/                   # Build and utility scripts
+│   └── build-sea.sh          # SEA binary generation script
+├── .github/workflows/         # GitHub Actions
+│   ├── release.yml           # Automated release workflow
+│   └── ci.yml                # CI testing workflow
+├── .env.example               # Example environment variables
+├── esbuild.config.mjs        # esbuild bundler configuration
+├── sea-config.json           # Node.js SEA configuration
+└── README.md                  # This file
+```
+
+### Service URLs
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Web Dashboard | http://localhost:5173 | View usage logs and statistics |
-| Proxy API | http://localhost:3000/v1/* | Forward requests to OpenRouter |
+| Web Dashboard | http://localhost:3000 | View usage logs and statistics |
+| Proxy API | http://localhost:3000/openrouter/api/v1/* | Forward requests to OpenRouter |
 | Logs API | http://localhost:3000/api/logs | Query logged usage data |
 | Stats API | http://localhost:3000/api/logs/stats | Get summary statistics |
 
-## API Endpoints
+### API Endpoints
 
-### Proxy Endpoint
+**Proxy Endpoint**
 
-`POST /v1/chat/completions` - Proxy to OpenRouter chat completions API
+`POST /openrouter/api/v1/chat/completions` - Proxy to OpenRouter chat completions API
 
-### Logs API
+**Logs API**
 
 `GET /api/logs` - Get all usage logs
 
@@ -268,7 +318,7 @@ Response:
 }
 ```
 
-## Database Schema
+### Database Schema
 
 The SQLite database stores usage logs in the `usage_logs` table:
 
@@ -304,7 +354,6 @@ The SQLite database stores usage logs in the `usage_logs` table:
 
 ### Publishing
 
-
 #### First-Time Setup
 
 1. Publish your package manually once (requires npm account with 2FA):
@@ -338,13 +387,6 @@ git push && git push --tags
 # 3. Include provenance attestations
 # 4. Create a GitHub release
 ```
-
-## Limitations
-
-- Streaming responses are not supported (responses are buffered for logging)
-- No authentication/authorization for the proxy
-- No rate limiting or caching
-- Single-user design (no multi-tenancy)
 
 ## License
 
