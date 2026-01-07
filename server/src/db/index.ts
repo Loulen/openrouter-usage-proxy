@@ -6,6 +6,8 @@
 
 import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
+import os from 'os';
+import fs from 'fs';
 import {
   initializeSchema,
   INSERT_USAGE_LOG,
@@ -29,9 +31,18 @@ import type {
 } from '../types/index.js';
 
 /**
- * Database file path - stored in server root directory
+ * Database file path - stored in user's home directory
+ * Creates ~/.openrouter-proxy/ directory to store the database
  */
-const DB_PATH = path.join(process.cwd(), 'usage.db');
+const DATA_DIR = path.join(os.homedir(), '.openrouter-proxy');
+const DB_PATH = path.join(DATA_DIR, 'usage.db');
+
+/**
+ * Ensure the data directory exists before initializing the database
+ */
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 /**
  * Database instance
