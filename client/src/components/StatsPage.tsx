@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PieChartCard } from './PieChartCard';
 import { LineChartCard } from './LineChartCard';
+import { BarChartCard } from './BarChartCard';
+import { useSettings } from '../hooks/useSettings';
+import { useApiKeys } from '../hooks/useApiKeys';
 import type {
   StatsPageProps,
   ModelStats,
@@ -80,14 +83,20 @@ function transformToChartData(
  * Shows breakdown of requests, tokens, and costs by model
  * Includes time-series visualization with aggregation options
  * Supports filtering by model and date range
+ * When API key tracking is enabled, shows additional charts for API key distribution
  */
 export function StatsPage({ filters, loading: filtersLoading = false }: StatsPageProps): JSX.Element {
   const [modelStats, setModelStats] = useState<ModelStats[]>([]);
   const [timeSeries, setTimeSeries] = useState<TimeSeriesDataPoint[]>([]);
   const [aggregation, setAggregation] = useState<AggregationPeriod>('day');
+  const [apiKeyAggregation, setApiKeyAggregation] = useState<AggregationPeriod>('day');
   const [loading, setLoading] = useState(true);
   const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  // Fetch settings and API key balances for API key charts
+  const { settings, loading: settingsLoading } = useSettings();
+  const { balances: apiKeyBalances, loading: apiKeysLoading } = useApiKeys();
 
   const fetchModelStats = useCallback(async () => {
     setLoading(true);
@@ -154,7 +163,88 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
   const tokensData = transformToChartData(modelStats, 'total_tokens');
   const costData = transformToChartData(modelStats, 'total_cost');
 
+  // Check if API key tracking is enabled
+  const apiKeyTrackingEnabled = settings?.apiKeyTrackingEnabled ?? false;
+  const hasApiKeyData = apiKeyBalances.length > 0 && !apiKeyBalances.every((b) => b.error);
+
+  // Transform API key balances to pie chart data (cost distribution by monthly usage)
+  const apiKeyCostData = useMemo<ChartDataPoint[]>(() => {
+    if (!apiKeyTrackingEnabled || apiKeyBalances.length === 0) {
+      return [];
+    }
+    return apiKeyBalances
+      .filter((balance) => !balance.error && balance.usageMonthly > 0)
+      .map((balance) => ({
+        name: balance.label,
+        value: balance.usageMonthly,
+      }));
+  }, [apiKeyTrackingEnabled, apiKeyBalances]);
+
+  // Transform API key balances to time-series-like data for bar chart
+  // Since we have daily, weekly, monthly usage from OpenRouter, we simulate periods
+  const apiKeyBarChartData = useMemo<TimeSeriesDataPoint[]>(() => {
+    if (!apiKeyTrackingEnabled || apiKeyBalances.length === 0) {
+      return [];
+    }
+
+    const validBalances = apiKeyBalances.filter((balance) => !balance.error);
+
+    // Create time-series-like data based on aggregation selection
+    // Since OpenRouter provides daily/weekly/monthly totals, we create period-based data
+    const data: TimeSeriesDataPoint[] = [];
+
+    if (apiKeyAggregation === 'day') {
+      // Use daily usage - show as "Today"
+      const today = new Date().toISOString().split('T')[0];
+      validBalances.forEach((balance) => {
+        if (balance.usageDaily > 0) {
+          data.push({
+            period: today,
+            model: balance.label, // Using 'model' field for API key label (compatible with BarChartCard)
+            request_count: 0,
+            total_tokens: 0,
+            total_cost: balance.usageDaily,
+          });
+        }
+      });
+    } else if (apiKeyAggregation === 'week') {
+      // Use weekly usage - show as current week
+      const now = new Date();
+      const weekNum = Math.ceil((now.getDate() + new Date(now.getFullYear(), now.getMonth(), 1).getDay()) / 7);
+      const weekPeriod = `${now.getFullYear()}-${String(weekNum).padStart(2, '0')}`;
+      validBalances.forEach((balance) => {
+        if (balance.usageWeekly > 0) {
+          data.push({
+            period: weekPeriod,
+            model: balance.label,
+            request_count: 0,
+            total_tokens: 0,
+            total_cost: balance.usageWeekly,
+          });
+        }
+      });
+    } else {
+      // Use monthly usage - default/fallback
+      const now = new Date();
+      const monthPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      validBalances.forEach((balance) => {
+        if (balance.usageMonthly > 0) {
+          data.push({
+            period: monthPeriod,
+            model: balance.label,
+            request_count: 0,
+            total_tokens: 0,
+            total_cost: balance.usageMonthly,
+          });
+        }
+      });
+    }
+
+    return data;
+  }, [apiKeyTrackingEnabled, apiKeyBalances, apiKeyAggregation]);
+
   const isLoading = loading || filtersLoading;
+  const isApiKeyChartsLoading = settingsLoading || apiKeysLoading;
 
   return (
     <div className="stats-page">
@@ -222,6 +312,39 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
             aggregation={aggregation}
             onAggregationChange={setAggregation}
           />
+
+          {/* API Key Charts Section - Only shown when API key tracking is enabled */}
+          {apiKeyTrackingEnabled && (
+            <>
+              <h2 className="stats-page-section-title">API Key Statistics</h2>
+              <div className="stats-page-charts stats-page-charts-api-keys">
+                <PieChartCard
+                  title="Cost by API Key"
+                  data={apiKeyCostData}
+                  loading={isApiKeyChartsLoading}
+                />
+                <BarChartCard
+                  title="API Key Consumption"
+                  data={apiKeyBarChartData}
+                  metric="total_cost"
+                  loading={isApiKeyChartsLoading}
+                  aggregation={apiKeyAggregation}
+                  onAggregationChange={setApiKeyAggregation}
+                />
+              </div>
+              {!isApiKeyChartsLoading && !hasApiKeyData && (
+                <div className="stats-page-empty-api-keys neu-card">
+                  <span className="stats-page-empty-icon">🔑</span>
+                  <p className="stats-page-empty-message">
+                    No API key data available.
+                  </p>
+                  <p className="stats-page-empty-hint">
+                    Add API keys in Settings to see consumption data here.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Model Breakdown Table */}
           {!isLoading && modelStats.length > 0 && (

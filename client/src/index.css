@@ -837,6 +837,35 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+/* Stats page section title for API key statistics */
+.stats-page-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 2rem 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--neu-shadow-light);
+}
+
+/* API key charts container */
+.stats-page-charts-api-keys {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* API key empty state */
+.stats-page-empty-api-keys {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  gap: 0.5rem;
+}
+
 /* Responsive adjustments for stats page */
 @media (max-width: 768px) {
   .stats-page-summary {
@@ -859,6 +888,15 @@ button:disabled {
 
   .stats-page-table-model {
     max-width: 150px;
+  }
+
+  .stats-page-charts-api-keys {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-page-section-title {
+    font-size: 1.1rem;
+    margin: 1.5rem 0 0.75rem 0;
   }
 }
 
