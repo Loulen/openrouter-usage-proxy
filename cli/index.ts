@@ -15,6 +15,36 @@
  */
 
 import { Command, Option } from 'commander';
+import type { Server } from 'http';
+
+// =============================================================================
+// SERVICE REGISTRY
+// =============================================================================
+
+/**
+ * Registry of running services for graceful shutdown
+ * Services are closed in the order they were registered
+ */
+interface RegisteredService {
+  name: string;
+  server: Server;
+}
+
+const runningServices: RegisteredService[] = [];
+
+/**
+ * Register a service for graceful shutdown
+ * @param name - Human-readable name for logging
+ * @param server - HTTP server instance to close on shutdown
+ */
+export function registerService(name: string, server: Server): void {
+  runningServices.push({ name, server });
+}
+
+/**
+ * Check if shutdown is in progress
+ */
+let isShuttingDown = false;
 
 /**
  * Default port for the API server
@@ -86,26 +116,45 @@ export function parseArgs(argv: string[] = process.argv): CliOptions {
 
 /**
  * Graceful shutdown handler
- * Closes all services and exits cleanly
+ * Closes all registered services and exits cleanly
  */
 function shutdown(signal: string): void {
+  // Prevent multiple shutdown attempts
+  if (isShuttingDown) {
+    return;
+  }
+  isShuttingDown = true;
+
   process.stdout.write(`\n[cli] Received ${signal}, shutting down gracefully...\n`);
 
-  // TODO: Close HTTP servers gracefully (implemented in subtask-2-4)
-
   // Force exit if graceful shutdown takes too long
-  const forceExitTimeout = setTimeout(() => {
+  setTimeout(() => {
     process.stderr.write('[cli] Forcing shutdown after timeout\n');
     process.exit(1);
   }, 10000);
 
-  // Clear the timeout if we exit normally
-  forceExitTimeout.unref();
+  // If no services registered, exit immediately
+  if (runningServices.length === 0) {
+    process.stdout.write('[cli] No services to close, shutdown complete\n');
+    process.exit(0);
+  }
 
-  // For now, just exit cleanly
-  // Full implementation in subtask-2-4 will handle server cleanup
-  process.stdout.write('[cli] Shutdown complete\n');
-  process.exit(0);
+  // Close all registered services
+  let closedCount = 0;
+  const totalServices = runningServices.length;
+
+  for (const service of runningServices) {
+    service.server.close(() => {
+      process.stdout.write(`[cli] ${service.name} closed\n`);
+      closedCount++;
+
+      // Exit when all services are closed
+      if (closedCount === totalServices) {
+        process.stdout.write('[cli] All services closed, shutdown complete\n');
+        process.exit(0);
+      }
+    });
+  }
 }
 
 /**
