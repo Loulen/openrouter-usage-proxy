@@ -7,7 +7,8 @@ import { LogsTable } from './components/LogsTable';
 import { NavBar } from './components/NavBar';
 import { Filters } from './components/Filters';
 import { StatsPage } from './components/StatsPage';
-import type { FilterParams } from './types';
+import { SettingsPage } from './components/SettingsPage';
+import type { FilterParams, PageType } from './types';
 
 /**
  * Main application component for the OpenRouter Usage Dashboard
@@ -17,7 +18,7 @@ import type { FilterParams } from './types';
  */
 function App(): JSX.Element {
   // Page navigation state
-  const [activePage, setActivePage] = useState<'dashboard' | 'stats'>('dashboard');
+  const [activePage, setActivePage] = useState<PageType>('dashboard');
 
   // Filter state shared across all views
   const [filters, setFilters] = useState<FilterParams>({});
@@ -38,7 +39,7 @@ function App(): JSX.Element {
   /**
    * Handle page navigation
    */
-  const handlePageChange = (page: 'dashboard' | 'stats') => {
+  const handlePageChange = (page: PageType) => {
     setActivePage(page);
   };
 
@@ -79,13 +80,17 @@ function App(): JSX.Element {
       )}
 
       <main className="app-main">
-        {activePage === 'dashboard' ? (
+        {activePage === 'dashboard' && (
           <>
             <Dashboard stats={stats} loading={loading} />
             <LogsTable logs={logs} loading={loading} />
           </>
-        ) : (
+        )}
+        {activePage === 'stats' && (
           <StatsPage filters={filters} loading={loading} />
+        )}
+        {activePage === 'settings' && (
+          <SettingsPage onNavigate={handlePageChange} />
         )}
       </main>
 
