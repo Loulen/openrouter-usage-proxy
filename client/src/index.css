@@ -1454,3 +1454,255 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   ApiKeyTable Component Styles
+   ========================================================================== */
+
+.api-key-table-container {
+  margin-bottom: 1.5rem;
+}
+
+.api-key-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.api-key-table-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.api-key-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.api-key-table-updated {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.api-key-table-refresh-button {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* Table wrapper for horizontal scroll on mobile */
+.api-key-table-wrapper {
+  overflow-x: auto;
+}
+
+.api-key-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+
+.api-key-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border-bottom: 2px solid var(--neu-shadow-dark);
+}
+
+.api-key-table td {
+  padding: 0.875rem 1rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(163, 177, 198, 0.3);
+  font-size: 0.9375rem;
+}
+
+.api-key-table tbody tr:hover {
+  background: rgba(163, 177, 198, 0.1);
+}
+
+.api-key-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Warning row styling for zero balance */
+.api-key-table-row-warning {
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.api-key-table-row-warning:hover {
+  background: rgba(220, 38, 38, 0.1) !important;
+}
+
+/* Label column */
+.api-key-table-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.api-key-table-label-text {
+  font-weight: 500;
+}
+
+/* Badge styling */
+.api-key-table-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 9999px;
+}
+
+.api-key-table-badge-free {
+  background: rgba(5, 150, 105, 0.15);
+  color: var(--success-color);
+}
+
+.api-key-table-badge-error {
+  background: rgba(220, 38, 38, 0.15);
+  color: var(--error-color);
+}
+
+/* Low balance warning */
+.api-key-table-low-balance {
+  color: var(--error-color);
+  font-weight: 600;
+}
+
+.api-key-table-warning-icon {
+  margin-right: 0.25rem;
+}
+
+.api-key-table-unlimited {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Loading state */
+.api-key-table-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+}
+
+.api-key-table-loading-text {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Error state */
+.api-key-table-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.api-key-table-error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: var(--error-color);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.api-key-table-error-message {
+  color: var(--error-color);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.api-key-table-retry-button {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+}
+
+/* Empty state */
+.api-key-table-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.api-key-table-empty-icon {
+  font-size: 2.5rem;
+}
+
+.api-key-table-empty-message {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.api-key-table-empty-hint {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  max-width: 400px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.api-key-table-settings-button {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  background: var(--accent-blue);
+  color: white;
+  box-shadow: 4px 4px 8px var(--neu-shadow-dark),
+              -4px -4px 8px var(--neu-shadow-light);
+}
+
+.api-key-table-settings-button:hover {
+  background: var(--accent-blue-hover);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .api-key-table-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .api-key-table-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .api-key-table th,
+  .api-key-table td {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .api-key-table-title {
+    font-size: 1rem;
+  }
+}
