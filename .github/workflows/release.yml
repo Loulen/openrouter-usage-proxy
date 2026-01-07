@@ -47,11 +47,6 @@ jobs:
             arch: arm64
             runner: ubuntu-24.04-arm
             binary_suffix: ''
-          # macOS x64 (Intel)
-          - os: macos
-            arch: x64
-            runner: macos-13
-            binary_suffix: ''
           # macOS arm64 (Apple Silicon)
           - os: macos
             arch: arm64
@@ -256,7 +251,6 @@ jobs:
           |----------|--------------|------|
           | Linux | x64 | `openrouter-proxy-linux-x64.tar.gz` |
           | Linux | arm64 | `openrouter-proxy-linux-arm64.tar.gz` |
-          | macOS | Intel | `openrouter-proxy-macos-x64.tar.gz` |
           | macOS | Apple Silicon | `openrouter-proxy-macos-arm64.tar.gz` |
           | Windows | x64 | `openrouter-proxy-windows-x64.zip` |
 
