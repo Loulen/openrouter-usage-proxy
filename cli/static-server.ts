@@ -15,24 +15,25 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import serveStatic from 'serve-static';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import type { Server } from 'http';
 
 /**
- * Get the directory containing this file.
- * Works in both ESM (with import.meta.url) and CJS (with __dirname) contexts.
- * For bundled CJS output, we use process.cwd() as the base since the bundle
- * runs from the project root.
+ * Get the package root directory.
+ * Uses import.meta.url to find the actual package installation location,
+ * which works correctly when installed globally via npm.
  */
-function getCurrentDir(): string {
-  // In CJS bundle, __dirname may be available but points to wrong location
-  // Use process.cwd() which should be the project root when running the CLI
-  return process.cwd();
+function getPackageDir(): string {
+  // Get the directory of this file (cli/)
+  const currentFileDir = path.dirname(fileURLToPath(import.meta.url));
+  // Go up one level to get the package root
+  return path.dirname(currentFileDir);
 }
 
 /**
- * Default path to client dist directory (relative to project root/cwd)
+ * Default path to client dist directory (relative to package root)
  */
-const DEFAULT_CLIENT_DIST_PATH = path.resolve(getCurrentDir(), 'client/dist');
+const DEFAULT_CLIENT_DIST_PATH = path.resolve(getPackageDir(), 'client/dist');
 
 /**
  * Static server configuration options

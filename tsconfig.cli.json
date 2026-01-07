@@ -16,5 +16,5 @@
     "allowSyntheticDefaultImports": true
   },
   "include": ["cli/**/*", "server/src/**/*"],
-  "exclude": ["node_modules", "dist", "client"]
+  "exclude": ["node_modules", "dist", "client", "**/__tests__/**", "**/*.test.ts"]
 }
