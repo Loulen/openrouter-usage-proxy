@@ -23,6 +23,7 @@ dotenv.config();
 // Import after dotenv.config() so environment variables are available
 import logsRouter from './routes/logs.js';
 import settingsRouter from './routes/settings.js';
+import apiKeysRouter from './routes/api-keys.js';
 import { proxyMiddleware } from './middleware/proxy.js';
 import { closeDatabase } from './db/index.js';
 import type { ApiErrorResponse } from './types/index.js';
@@ -76,6 +77,19 @@ app.use('/api/logs', logsRouter);
  * - PUT /api/settings - Updates settings
  */
 app.use('/api/settings', settingsRouter);
+
+/**
+ * API Keys Routes - API key CRUD and OpenRouter balance fetching
+ *
+ * Endpoints:
+ * - GET /api/api-keys - Returns all API keys (masked)
+ * - POST /api/api-keys - Creates new API key
+ * - PUT /api/api-keys/:id - Updates API key
+ * - DELETE /api/api-keys/:id - Deletes API key
+ * - GET /api/api-keys/balances - Fetches all keys' balances from OpenRouter
+ * - GET /api/api-keys/:id/balance - Fetches single key's balance from OpenRouter
+ */
+app.use('/api/api-keys', apiKeysRouter);
 
 /**
  * Health check endpoint for monitoring
