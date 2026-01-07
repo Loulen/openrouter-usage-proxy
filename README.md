@@ -14,6 +14,8 @@ This tool acts as a **transparent proxy** between clients and OpenRouter's API. 
 - SQLite database for persistent storage
 - React web dashboard for viewing logs and statistics
 - Summary statistics: total tokens, total cost, request count
+- **CLI executable** with configurable ports for easy deployment
+- Pre-built binaries available for Linux, macOS, and Windows
 
 ## Architecture
 
@@ -44,6 +46,10 @@ This tool acts as a **transparent proxy** between clients and OpenRouter's API. 
 
 ```
 openrouter-usage-proxy/
+├── cli/                       # CLI entry point
+│   ├── index.ts              # Main CLI with Commander.js
+│   ├── server-runner.ts      # Express server runner
+│   └── static-server.ts      # Static file server
 ├── server/                    # Backend proxy server
 │   ├── src/
 │   │   ├── index.ts          # Express app entry point
@@ -71,7 +77,14 @@ openrouter-usage-proxy/
 │   │       └── index.ts      # TypeScript types
 │   ├── vite.config.ts
 │   └── package.json
+├── scripts/                   # Build and utility scripts
+│   └── build-sea.sh          # SEA binary generation script
+├── .github/workflows/         # GitHub Actions
+│   ├── release.yml           # Automated release workflow
+│   └── ci.yml                # CI testing workflow
 ├── .env.example               # Example environment variables
+├── esbuild.config.mjs        # esbuild bundler configuration
+├── sea-config.json           # Node.js SEA configuration
 └── README.md                  # This file
 ```
 
@@ -108,6 +121,79 @@ openrouter-usage-proxy/
    ```
 
 5. Open the dashboard at http://localhost:5173
+
+## CLI Usage
+
+The OpenRouter Usage Proxy can also be run as a standalone CLI executable that launches both the API server and web dashboard with a single command.
+
+### Pre-built Binaries
+
+Download pre-built binaries from the [GitHub Releases](https://github.com/your-username/openrouter-usage-proxy/releases) page:
+
+| Platform | Architecture | Binary |
+|----------|--------------|--------|
+| Linux | x64 | `openrouter-proxy-linux-x64` |
+| Linux | arm64 | `openrouter-proxy-linux-arm64` |
+| macOS | x64 | `openrouter-proxy-darwin-x64` |
+| macOS | arm64 (Apple Silicon) | `openrouter-proxy-darwin-arm64` |
+| Windows | x64 | `openrouter-proxy-win32-x64.exe` |
+
+### CLI Options
+
+```
+Usage: openrouter-proxy [options]
+
+Options:
+  --server-port <port>   Port for the API server (default: 3000)
+  --client-port <port>   Port for the static file server (defaults to server-port)
+  --help                 Display help information
+  --version              Display version number
+```
+
+### Examples
+
+**Start with default settings (port 3000):**
+```bash
+./openrouter-proxy
+```
+
+**Start on a custom port:**
+```bash
+./openrouter-proxy --server-port 8080
+```
+
+**Run API server and dashboard on different ports:**
+```bash
+./openrouter-proxy --server-port 3000 --client-port 5173
+```
+
+**Display help:**
+```bash
+./openrouter-proxy --help
+```
+
+### Unified vs Separate Port Modes
+
+- **Unified mode** (default): When `--client-port` is not specified or equals `--server-port`, the dashboard is served by the API server on the same port. Access everything at `http://localhost:<server-port>/`.
+
+- **Separate port mode**: When `--client-port` differs from `--server-port`, the dashboard runs on its own port with API requests proxied to the server port.
+
+### Building from Source
+
+To build the CLI executable from source:
+
+```bash
+# Install dependencies
+npm install
+cd server && npm install && cd ..
+cd client && npm install && cd ..
+
+# Build everything
+npm run build
+
+# Run the bundled CLI
+node dist/bundle.cjs --help
+```
 
 ### Using the Proxy
 
