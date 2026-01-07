@@ -304,7 +304,6 @@ The SQLite database stores usage logs in the `usage_logs` table:
 
 ### Publishing
 
-This package uses **npm Trusted Publishing with OIDC** - no tokens required!
 
 #### First-Time Setup
 
