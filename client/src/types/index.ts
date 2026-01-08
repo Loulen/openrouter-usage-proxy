@@ -332,6 +332,38 @@ export interface ApiKeyStats {
 }
 
 /**
+ * Statistics breakdown for a single API key from local usage logs
+ * Used for API key comparison and filtering analytics
+ */
+export interface ApiKeyStatsData {
+  /** SHA-256 hash of the API key, or 'unknown' for NULL values */
+  api_key_hash: string;
+  /** Number of requests made with this API key */
+  request_count: number;
+  /** Total tokens used by this API key */
+  total_tokens: number;
+  /** Total cost in USD for this API key */
+  total_cost: number;
+}
+
+/**
+ * Time-series data point for API key consumption over time
+ * Used for line/bar chart visualization filtered by API key
+ */
+export interface ApiKeyTimeSeriesDataPoint {
+  /** Period start timestamp */
+  period: string;
+  /** SHA-256 hash of the API key, or 'unknown' for NULL values */
+  api_key_hash: string;
+  /** Number of requests in this period for this API key */
+  request_count: number;
+  /** Total tokens used in this period for this API key */
+  total_tokens: number;
+  /** Total cost in USD for this period for this API key */
+  total_cost: number;
+}
+
+/**
  * Input for creating a new API key
  */
 export interface ApiKeyInput {
