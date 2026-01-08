@@ -16,6 +16,7 @@ import type {
   TimeSeriesDataPoint,
   ApiKeyStatsData,
   ApiKeyTimeSeriesDataPoint,
+  UnifiedStatsResponse,
 } from '../../types';
 
 /**
@@ -118,14 +119,57 @@ const mockApiKeyTimeSeries: ApiKeyTimeSeriesDataPoint[] = [
 ];
 
 /**
+ * Mock unified stats response
+ */
+const mockUnifiedStatsResponse: UnifiedStatsResponse = {
+  stats: {
+    request_count: 150,
+    total_tokens: 15000,
+    total_cost: 2.25,
+  },
+  modelStats: mockModelStats,
+  timeSeries: mockTimeSeries,
+  apiKeyStats: mockApiKeyStats,
+  apiKeyTimeSeries: mockApiKeyTimeSeries,
+};
+
+/**
+ * Mock empty unified stats response
+ */
+const mockEmptyUnifiedStatsResponse: UnifiedStatsResponse = {
+  stats: {
+    request_count: 0,
+    total_tokens: 0,
+    total_cost: 0,
+  },
+  modelStats: [],
+  timeSeries: [],
+  apiKeyStats: [],
+  apiKeyTimeSeries: [],
+};
+
+/**
+ * Mock unified stats response with model data but no API key data
+ */
+const mockUnifiedStatsNoApiKey: UnifiedStatsResponse = {
+  stats: {
+    request_count: 150,
+    total_tokens: 15000,
+    total_cost: 2.25,
+  },
+  modelStats: mockModelStats,
+  timeSeries: mockTimeSeries,
+  apiKeyStats: [],
+  apiKeyTimeSeries: [],
+};
+
+/**
  * Helper to setup standard mocks for all endpoints
+ * Uses the unified stats endpoint plus separate hash-map endpoint
  */
 function setupAllMocks() {
-  mockFetchResponse('/api/logs/model-stats', mockModelStats);
-  mockFetchResponse('/api/logs/time-series', mockTimeSeries);
+  mockFetchResponse(/\/api\/logs\/unified-stats/, mockUnifiedStatsResponse);
   mockFetchResponse('/api/api-keys/hash-map', mockHashMap);
-  mockFetchResponse('/api/logs/api-key-stats', mockApiKeyStats);
-  mockFetchResponse('/api/logs/api-key-time-series', mockApiKeyTimeSeries);
 }
 
 describe('StatsPage', () => {
@@ -181,12 +225,9 @@ describe('StatsPage', () => {
 
   describe('Loading states', () => {
     it('displays loading indicators while fetching data', () => {
-      // Set up mocks but don't resolve immediately
-      mockFetchResponse('/api/logs/model-stats', mockModelStats);
-      mockFetchResponse('/api/logs/time-series', mockTimeSeries);
+      // Set up mocks
+      mockFetchResponse(/\/api\/logs\/unified-stats/, mockUnifiedStatsResponse);
       mockFetchResponse('/api/api-keys/hash-map', mockHashMap);
-      mockFetchResponse('/api/logs/api-key-stats', mockApiKeyStats);
-      mockFetchResponse('/api/logs/api-key-time-series', mockApiKeyTimeSeries);
 
       renderWithProviders(<StatsPage filters={{}} loading={true} />);
 
@@ -290,11 +331,8 @@ describe('StatsPage', () => {
 
   describe('Empty states', () => {
     it('shows empty state when no model data', async () => {
-      mockFetchResponse('/api/logs/model-stats', []);
-      mockFetchResponse('/api/logs/time-series', []);
+      mockFetchResponse(/\/api\/logs\/unified-stats/, mockEmptyUnifiedStatsResponse);
       mockFetchResponse('/api/api-keys/hash-map', {});
-      mockFetchResponse('/api/logs/api-key-stats', []);
-      mockFetchResponse('/api/logs/api-key-time-series', []);
 
       renderWithProviders(<StatsPage filters={{}} />);
 
@@ -314,11 +352,8 @@ describe('StatsPage', () => {
         refetch: vi.fn(),
       });
 
-      mockFetchResponse('/api/logs/model-stats', mockModelStats);
-      mockFetchResponse('/api/logs/time-series', mockTimeSeries);
+      mockFetchResponse(/\/api\/logs\/unified-stats/, mockUnifiedStatsNoApiKey);
       mockFetchResponse('/api/api-keys/hash-map', {});
-      mockFetchResponse('/api/logs/api-key-stats', []);
-      mockFetchResponse('/api/logs/api-key-time-series', []);
 
       renderWithProviders(<StatsPage filters={{}} />);
 
@@ -331,7 +366,7 @@ describe('StatsPage', () => {
   });
 
   describe('Fetch endpoint mocking', () => {
-    it('mocks /api/logs/api-key-stats endpoint', async () => {
+    it('fetches unified stats endpoint', async () => {
       setupAllMocks();
       vi.mocked(useSettings).mockReturnValue({
         settings: { apiKeyTrackingEnabled: true, apiKeys: [], lastUpdated: '' },
@@ -344,17 +379,17 @@ describe('StatsPage', () => {
       renderWithProviders(<StatsPage filters={{}} />);
 
       await waitFor(() => {
-        // Verify API key stats endpoint was called by checking component renders
+        // Verify API key stats were loaded (included in unified response)
         expect(screen.getByText('API Key Statistics')).toBeInTheDocument();
       });
 
-      // Verify fetch was called with correct endpoint
+      // Verify fetch was called with unified-stats endpoint
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/logs/api-key-stats')
+        expect.stringContaining('/api/logs/unified-stats')
       );
     });
 
-    it('mocks /api/logs/api-key-time-series endpoint', async () => {
+    it('fetches unified stats with aggregation parameters', async () => {
       setupAllMocks();
       vi.mocked(useSettings).mockReturnValue({
         settings: { apiKeyTrackingEnabled: true, apiKeys: [], lastUpdated: '' },
@@ -370,13 +405,13 @@ describe('StatsPage', () => {
         expect(screen.getByText('Cost Over Time by API Key')).toBeInTheDocument();
       });
 
-      // Verify fetch was called with correct endpoint
+      // Verify fetch was called with aggregation params in unified-stats endpoint
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/logs/api-key-time-series')
+        expect.stringMatching(/\/api\/logs\/unified-stats\?.*aggregation=/)
       );
     });
 
-    it('mocks /api/api-keys/hash-map endpoint', async () => {
+    it('fetches hash-map endpoint separately', async () => {
       setupAllMocks();
       renderWithProviders(<StatsPage filters={{}} />);
 
@@ -384,7 +419,7 @@ describe('StatsPage', () => {
         expect(screen.getByText('Requests by Model')).toBeInTheDocument();
       });
 
-      // Verify fetch was called with correct endpoint
+      // Verify fetch was called with hash-map endpoint (separate from unified stats)
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/api-keys/hash-map')
       );

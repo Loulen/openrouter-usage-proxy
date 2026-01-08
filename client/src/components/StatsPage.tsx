@@ -12,30 +12,42 @@ import type {
   AggregationPeriod,
   ApiKeyStatsData,
   ApiKeyTimeSeriesDataPoint,
+  UnifiedStatsResponse,
 } from '../types';
 
 /**
- * Builds a query string from filter parameters
- * Only includes non-empty filter values
+ * Builds a query string for the unified stats endpoint
+ * Includes filter parameters and aggregation settings
  *
- * @param filters - Filter parameters (model, from, to)
- * @returns Query string starting with '?' or empty string if no filters
+ * @param filters - Filter parameters (model, from, to, apiKeyId)
+ * @param aggregation - Aggregation period for model time-series
+ * @param apiKeyAggregation - Aggregation period for API key time-series
+ * @returns Query string starting with '?' or empty string if no params
  */
-function buildQueryString(filters?: FilterParams): string {
-  if (!filters) {
-    return '';
-  }
-
+function buildUnifiedStatsQueryString(
+  filters?: FilterParams,
+  aggregation?: AggregationPeriod,
+  apiKeyAggregation?: AggregationPeriod
+): string {
   const params = new URLSearchParams();
 
-  if (filters.model) {
+  if (filters?.model) {
     params.append('model', filters.model);
   }
-  if (filters.from) {
+  if (filters?.from) {
     params.append('from', filters.from);
   }
-  if (filters.to) {
+  if (filters?.to) {
     params.append('to', filters.to);
+  }
+  if (filters?.apiKeyId) {
+    params.append('apiKeyId', filters.apiKeyId);
+  }
+  if (aggregation) {
+    params.append('aggregation', aggregation);
+  }
+  if (apiKeyAggregation) {
+    params.append('apiKeyAggregation', apiKeyAggregation);
   }
 
   const queryString = params.toString();
@@ -87,74 +99,59 @@ function transformToChartData(
  * When API key tracking is enabled, shows additional charts for API key distribution
  */
 export function StatsPage({ filters, loading: filtersLoading = false }: StatsPageProps): JSX.Element {
+  // State for unified stats data
   const [modelStats, setModelStats] = useState<ModelStats[]>([]);
   const [timeSeries, setTimeSeries] = useState<TimeSeriesDataPoint[]>([]);
+  const [apiKeyStats, setApiKeyStats] = useState<ApiKeyStatsData[]>([]);
+  const [apiKeyTimeSeries, setApiKeyTimeSeries] = useState<ApiKeyTimeSeriesDataPoint[]>([]);
+
+  // Aggregation controls
   const [aggregation, setAggregation] = useState<AggregationPeriod>('day');
   const [apiKeyAggregation, setApiKeyAggregation] = useState<AggregationPeriod>('day');
-  const [loading, setLoading] = useState(true);
-  const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
+
+  // Single loading state for unified stats fetch
+  const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   // Fetch settings for API key tracking configuration
   const { settings, loading: settingsLoading } = useSettings();
 
-  // State for API key statistics from local logs
-  const [apiKeyStats, setApiKeyStats] = useState<ApiKeyStatsData[]>([]);
-  const [apiKeyTimeSeries, setApiKeyTimeSeries] = useState<ApiKeyTimeSeriesDataPoint[]>([]);
-  const [apiKeyStatsLoading, setApiKeyStatsLoading] = useState(true);
-  const [apiKeyTimeSeriesLoading, setApiKeyTimeSeriesLoading] = useState(true);
+  // Hash-to-label map for API key display (separate fetch, not part of unified stats)
   const [hashLabelMap, setHashLabelMap] = useState<Record<string, string>>({});
 
-  const fetchModelStats = useCallback(async () => {
-    setLoading(true);
+  /**
+   * Fetches all statistics from the unified endpoint
+   * Sets all state variables from a single response, ensuring consistency
+   */
+  const fetchUnifiedStats = useCallback(async () => {
+    setStatsLoading(true);
     setError(null);
 
     try {
-      const queryString = buildQueryString(filters);
-      const response = await fetch(`/api/logs/model-stats${queryString}`);
+      const queryString = buildUnifiedStatsQueryString(filters, aggregation, apiKeyAggregation);
+      const response = await fetch(`/api/logs/unified-stats${queryString}`);
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch model stats: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch statistics: ${response.status} ${response.statusText}`);
       }
 
-      const data: ModelStats[] = await response.json();
-      setModelStats(data);
+      const data: UnifiedStatsResponse = await response.json();
+
+      // Update all state variables from the unified response
+      setModelStats(data.modelStats);
+      setTimeSeries(data.timeSeries);
+      setApiKeyStats(data.apiKeyStats);
+      setApiKeyTimeSeries(data.apiKeyTimeSeries);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      setStatsLoading(false);
     }
-  }, [filters?.model, filters?.from, filters?.to]);
-
-  const fetchTimeSeries = useCallback(async () => {
-    setTimeSeriesLoading(true);
-
-    try {
-      const params = new URLSearchParams();
-      if (filters?.from) params.append('from', filters.from);
-      if (filters?.to) params.append('to', filters.to);
-      params.append('aggregation', aggregation);
-
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const response = await fetch(`/api/logs/time-series${queryString}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch time series: ${response.status} ${response.statusText}`);
-      }
-
-      const data: TimeSeriesDataPoint[] = await response.json();
-      setTimeSeries(data);
-    } catch (err) {
-      // Don't override main error state, silently handle time series fetch errors
-      // The main model stats error state already covers critical failures
-      void err;
-    } finally {
-      setTimeSeriesLoading(false);
-    }
-  }, [filters?.from, filters?.to, aggregation]);
+  }, [filters?.model, filters?.from, filters?.to, filters?.apiKeyId, aggregation, apiKeyAggregation]);
 
   /**
    * Fetches the hash-to-label mapping for API keys
+   * This is kept separate as it's not part of the unified stats endpoint
    */
   const fetchHashLabelMap = useCallback(async () => {
     try {
@@ -171,79 +168,15 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
     }
   }, []);
 
-  /**
-   * Fetches API key statistics from local logs
-   */
-  const fetchApiKeyStats = useCallback(async () => {
-    setApiKeyStatsLoading(true);
-
-    try {
-      const params = new URLSearchParams();
-      if (filters?.from) params.append('from', filters.from);
-      if (filters?.to) params.append('to', filters.to);
-
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const response = await fetch(`/api/logs/api-key-stats${queryString}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch API key stats: ${response.status} ${response.statusText}`);
-      }
-
-      const data: ApiKeyStatsData[] = await response.json();
-      setApiKeyStats(data);
-    } catch {
-      // Silently handle API key stats fetch errors
-    } finally {
-      setApiKeyStatsLoading(false);
-    }
-  }, [filters?.from, filters?.to]);
-
-  /**
-   * Fetches API key time-series data from local logs
-   */
-  const fetchApiKeyTimeSeries = useCallback(async () => {
-    setApiKeyTimeSeriesLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filters?.from) params.append('from', filters.from);
-      if (filters?.to) params.append('to', filters.to);
-      params.append('aggregation', apiKeyAggregation);
-
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const response = await fetch(`/api/logs/api-key-time-series${queryString}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch API key time series: ${response.status} ${response.statusText}`);
-      }
-
-      const data: ApiKeyTimeSeriesDataPoint[] = await response.json();
-      setApiKeyTimeSeries(data);
-    } catch {
-      // Silently handle API key time series fetch errors
-    } finally {
-      setApiKeyTimeSeriesLoading(false);
-    }
-  }, [filters?.from, filters?.to, apiKeyAggregation]);
-
+  // Fetch unified stats when filters or aggregation settings change
   useEffect(() => {
-    fetchModelStats();
-  }, [fetchModelStats]);
+    fetchUnifiedStats();
+  }, [fetchUnifiedStats]);
 
-  useEffect(() => {
-    fetchTimeSeries();
-  }, [fetchTimeSeries]);
-
+  // Fetch hash label map once on mount
   useEffect(() => {
     fetchHashLabelMap();
   }, [fetchHashLabelMap]);
-
-  useEffect(() => {
-    fetchApiKeyStats();
-  }, [fetchApiKeyStats]);
-
-  useEffect(() => {
-    fetchApiKeyTimeSeries();
-  }, [fetchApiKeyTimeSeries]);
 
   // Calculate summary statistics
   const totalRequests = modelStats.reduce((sum, stat) => sum + stat.request_count, 0);
@@ -320,8 +253,10 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
     }));
   }, [apiKeyTrackingEnabled, apiKeyTimeSeries, getApiKeyLabel]);
 
-  const isLoading = loading || filtersLoading;
-  const isApiKeyChartsLoading = settingsLoading || apiKeyStatsLoading || apiKeyTimeSeriesLoading;
+  // Unified loading state - all stats come from single fetch
+  const isLoading = statsLoading || filtersLoading;
+  // API key charts loading includes settings check (for tracking enabled status)
+  const isApiKeyChartsLoading = settingsLoading || statsLoading || filtersLoading;
 
   return (
     <div className="stats-page">
@@ -332,7 +267,7 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
           <button
             type="button"
             className="stats-page-retry-button neu-button"
-            onClick={fetchModelStats}
+            onClick={fetchUnifiedStats}
           >
             Retry
           </button>
@@ -385,7 +320,7 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
             title="Cost Over Time by Model"
             data={timeSeries}
             metric="total_cost"
-            loading={timeSeriesLoading || filtersLoading}
+            loading={isLoading}
             aggregation={aggregation}
             onAggregationChange={setAggregation}
           />

@@ -257,3 +257,31 @@ export interface ApiKeyTimeSeriesDataPoint {
   /** Total cost in USD for this period for this API key */
   total_cost: number;
 }
+
+/**
+ * Unified statistics response from /api/logs/unified-stats endpoint
+ * All statistics are computed from the same filtered dataset, guaranteeing consistency
+ */
+export interface UnifiedStatsResponse {
+  /** Overall aggregated statistics (total requests, tokens, cost) */
+  stats: UsageStats;
+  /** Per-model statistics breakdown */
+  modelStats: ModelStats[];
+  /** Time-series data grouped by period and model */
+  timeSeries: TimeSeriesDataPoint[];
+  /** Per-API-key statistics breakdown */
+  apiKeyStats: ApiKeyStats[];
+  /** Time-series data grouped by period and API key */
+  apiKeyTimeSeries: ApiKeyTimeSeriesDataPoint[];
+}
+
+/**
+ * Filter parameters for unified stats endpoint
+ * Combines all filter options with aggregation settings
+ */
+export interface UnifiedStatsFilterParams extends FilterParams {
+  /** Aggregation period for model time-series (hour, day, week) */
+  aggregation?: AggregationPeriod;
+  /** Aggregation period for API key time-series (hour, day, week) */
+  apiKeyAggregation?: AggregationPeriod;
+}

@@ -14,6 +14,7 @@ import {
   buildTimeSeriesQuery,
   buildApiKeyStatsQuery,
   buildApiKeyTimeSeriesQuery,
+  buildUnifiedStatsQuery,
   AGGREGATION_FORMATS,
   initializeSchema,
   CREATE_USAGE_LOGS_TABLE,
@@ -380,6 +381,30 @@ describe('Query Builders', () => {
         expect(sql).toContain('GROUP BY api_key_hash');
       });
     });
+
+    it('should add apiKeyHash filter when provided', () => {
+      const { sql, params } = buildApiKeyStatsQuery({ apiKeyHash: 'hash_abc123' });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(params).toEqual(['hash_abc123']);
+    });
+
+    it('should combine apiKeyHash with date range filters', () => {
+      const filters = {
+        from: '2024-01-01T00:00:00Z',
+        to: '2024-12-31T23:59:59Z',
+        apiKeyHash: 'hash_abc123',
+      };
+      const { sql, params } = buildApiKeyStatsQuery(filters);
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('timestamp >= ?');
+      expect(sql).toContain('timestamp <= ?');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(sql).toContain(' AND ');
+      expect(params).toEqual([filters.from, filters.to, filters.apiKeyHash]);
+    });
   });
 
   describe('buildApiKeyTimeSeriesQuery', () => {
@@ -449,6 +474,32 @@ describe('Query Builders', () => {
       // The query should use COALESCE to convert NULL to 'unknown'
       expect(sql).toContain("COALESCE(api_key_hash, 'unknown')");
     });
+
+    it('should add apiKeyHash filter when provided', () => {
+      const { sql, params } = buildApiKeyTimeSeriesQuery({ apiKeyHash: 'hash_abc123' });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(params).toEqual(['hash_abc123']);
+    });
+
+    it('should combine apiKeyHash with date range and aggregation filters', () => {
+      const filters = {
+        from: '2024-01-01T00:00:00Z',
+        to: '2024-12-31T23:59:59Z',
+        aggregation: 'week' as const,
+        apiKeyHash: 'hash_abc123',
+      };
+      const { sql, params } = buildApiKeyTimeSeriesQuery(filters);
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('timestamp >= ?');
+      expect(sql).toContain('timestamp <= ?');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(sql).toContain(' AND ');
+      expect(sql).toContain(AGGREGATION_FORMATS.week);
+      expect(params).toEqual([filters.from, filters.to, filters.apiKeyHash]);
+    });
   });
 
   describe('apiKeyHash filter in existing query builders', () => {
@@ -496,6 +547,195 @@ describe('Query Builders', () => {
       expect(sql).toContain('WHERE');
       expect(sql).toContain('api_key_hash = ?');
       expect(params).toEqual(['hash_abc123']);
+    });
+  });
+
+  describe('buildUnifiedStatsQuery', () => {
+    it('should build query with CTE structure when no filters provided', () => {
+      const { sql, params } = buildUnifiedStatsQuery({});
+
+      // Verify CTE structure
+      expect(sql).toContain('WITH filtered_logs AS');
+      expect(sql).toContain('SELECT * FROM usage_logs');
+      expect(sql).not.toContain('WHERE');
+      expect(params).toHaveLength(0);
+    });
+
+    it('should include all 5 aggregation CTEs', () => {
+      const { sql } = buildUnifiedStatsQuery({});
+
+      // Verify all CTEs are present
+      expect(sql).toContain('overall_stats AS');
+      expect(sql).toContain('model_stats AS');
+      expect(sql).toContain('time_series AS');
+      expect(sql).toContain('api_key_stats AS');
+      expect(sql).toContain('api_key_time_series AS');
+    });
+
+    it('should include JSON output for all statistics', () => {
+      const { sql } = buildUnifiedStatsQuery({});
+
+      // Verify JSON functions are used
+      expect(sql).toContain('json_object');
+      expect(sql).toContain('json_group_array');
+      expect(sql).toContain('as stats');
+      expect(sql).toContain('as modelStats');
+      expect(sql).toContain('as timeSeries');
+      expect(sql).toContain('as apiKeyStats');
+      expect(sql).toContain('as apiKeyTimeSeries');
+    });
+
+    it('should add model filter when model is provided', () => {
+      const { sql, params } = buildUnifiedStatsQuery({ model: 'anthropic/claude-3-opus' });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('model = ?');
+      expect(params).toEqual(['anthropic/claude-3-opus']);
+    });
+
+    it('should add from date filter when from is provided', () => {
+      const fromDate = '2024-01-01T00:00:00Z';
+      const { sql, params } = buildUnifiedStatsQuery({ from: fromDate });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('timestamp >= ?');
+      expect(params).toEqual([fromDate]);
+    });
+
+    it('should add to date filter when to is provided', () => {
+      const toDate = '2024-12-31T23:59:59Z';
+      const { sql, params } = buildUnifiedStatsQuery({ to: toDate });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('timestamp <= ?');
+      expect(params).toEqual([toDate]);
+    });
+
+    it('should add apiKeyHash filter when provided', () => {
+      const { sql, params } = buildUnifiedStatsQuery({ apiKeyHash: 'hash_abc123' });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(params).toEqual(['hash_abc123']);
+    });
+
+    it('should combine all filters with AND when all provided', () => {
+      const filters = {
+        model: 'openai/gpt-4',
+        from: '2024-01-01T00:00:00Z',
+        to: '2024-12-31T23:59:59Z',
+        apiKeyHash: 'hash_abc123',
+      };
+      const { sql, params } = buildUnifiedStatsQuery(filters);
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('model = ?');
+      expect(sql).toContain('timestamp >= ?');
+      expect(sql).toContain('timestamp <= ?');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(sql).toContain(' AND ');
+      expect(params).toEqual([filters.model, filters.from, filters.to, filters.apiKeyHash]);
+    });
+
+    it('should use default day aggregation for time series', () => {
+      const { sql } = buildUnifiedStatsQuery({});
+
+      // time_series CTE should use day format
+      expect(sql).toContain(AGGREGATION_FORMATS.day);
+    });
+
+    it('should use specified aggregation for model time series', () => {
+      const { sql } = buildUnifiedStatsQuery({ aggregation: 'hour' });
+
+      expect(sql).toContain(AGGREGATION_FORMATS.hour);
+    });
+
+    it('should use specified aggregation for API key time series', () => {
+      const { sql } = buildUnifiedStatsQuery({ apiKeyAggregation: 'week' });
+
+      // api_key_time_series CTE should use week format
+      expect(sql).toContain(AGGREGATION_FORMATS.week);
+    });
+
+    it('should support different aggregations for model and API key time series', () => {
+      const { sql } = buildUnifiedStatsQuery({
+        aggregation: 'hour',
+        apiKeyAggregation: 'week',
+      });
+
+      // Both formats should be present
+      expect(sql).toContain(AGGREGATION_FORMATS.hour);
+      expect(sql).toContain(AGGREGATION_FORMATS.week);
+    });
+
+    it('should include COALESCE for null handling in all aggregations', () => {
+      const { sql } = buildUnifiedStatsQuery({});
+
+      // Overall stats
+      expect(sql).toContain('COALESCE(SUM(total_tokens), 0)');
+      expect(sql).toContain('COALESCE(SUM(cost), 0)');
+
+      // API key stats should handle null api_key_hash
+      expect(sql).toContain("COALESCE(api_key_hash, 'unknown')");
+    });
+
+    it('should include proper GROUP BY clauses for each aggregation', () => {
+      const { sql } = buildUnifiedStatsQuery({});
+
+      expect(sql).toContain('GROUP BY model');
+      expect(sql).toContain('GROUP BY period, model');
+      expect(sql).toContain('GROUP BY api_key_hash');
+      expect(sql).toContain('GROUP BY period, api_key_hash');
+    });
+
+    it('should include proper ORDER BY clauses for each aggregation', () => {
+      const { sql } = buildUnifiedStatsQuery({});
+
+      // Model stats ordered by cost DESC
+      expect(sql).toContain('ORDER BY total_cost DESC');
+
+      // Time series ordered by period ASC
+      expect(sql).toContain('ORDER BY period ASC');
+    });
+
+    it('should place WHERE clause in filtered_logs CTE only', () => {
+      const { sql } = buildUnifiedStatsQuery({ model: 'test-model' });
+
+      // The WHERE should only appear once, in the filtered_logs CTE
+      const whereMatches = sql.match(/WHERE/g);
+      expect(whereMatches).toHaveLength(1);
+
+      // All other CTEs should query FROM filtered_logs
+      expect(sql).toContain('FROM filtered_logs');
+    });
+
+    it('should handle empty string filters gracefully', () => {
+      const { sql, params } = buildUnifiedStatsQuery({
+        model: '',
+        from: '',
+        to: '',
+        apiKeyHash: '',
+      });
+
+      // Empty strings are falsy, so should be treated as no filter
+      expect(sql).not.toMatch(/WHERE\s+model/);
+      expect(params).toHaveLength(0);
+    });
+
+    it('should preserve filter order in params array', () => {
+      const filters = {
+        model: 'model-a',
+        from: 'date-from',
+        to: 'date-to',
+        apiKeyHash: 'hash-123',
+      };
+      const { params } = buildUnifiedStatsQuery(filters);
+
+      // Order should be: model, from, to, apiKeyHash (based on buildFilterConditions implementation)
+      expect(params[0]).toBe('model-a');
+      expect(params[1]).toBe('date-from');
+      expect(params[2]).toBe('date-to');
+      expect(params[3]).toBe('hash-123');
     });
   });
 });

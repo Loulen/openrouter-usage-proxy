@@ -17,10 +17,11 @@ import {
   buildFilteredStatsQuery,
   buildFilteredModelStatsQuery,
   buildTimeSeriesQuery,
+  buildUnifiedStatsQuery,
   SELECT_ALL_LOGS,
   SELECT_USAGE_STATS,
   SELECT_DISTINCT_MODELS,
-} from '../schema.js';
+} from '../schema.ts';
 import type {
   UsageLog,
   UsageLogInput,
@@ -700,6 +701,841 @@ describe('Database CRUD Operations', () => {
       expect(logsDb2[0].model).toBe('second-db-model');
 
       cleanupTestDb(db2);
+    });
+  });
+});
+
+/**
+ * Integration tests for getUnifiedStats() function
+ * Tests the CTE-based unified statistics query with various data scenarios
+ */
+describe('getUnifiedStats Integration Tests', () => {
+  let db: Database.Database;
+
+  /**
+   * Helper function to replicate getUnifiedStats with a provided database instance
+   * Uses the same CTE-based query as the production function
+   */
+  function getUnifiedStatsForDb(
+    testDb: Database.Database,
+    filters: {
+      model?: string;
+      from?: string;
+      to?: string;
+      apiKeyHash?: string;
+      aggregation?: 'hour' | 'day' | 'week';
+      apiKeyAggregation?: 'hour' | 'day' | 'week';
+    } = {}
+  ): {
+    stats: UsageStats;
+    modelStats: ModelStats[];
+    timeSeries: TimeSeriesDataPoint[];
+    apiKeyStats: { api_key_hash: string; request_count: number; total_tokens: number; total_cost: number }[];
+    apiKeyTimeSeries: { period: string; api_key_hash: string; request_count: number; total_tokens: number; total_cost: number }[];
+  } {
+    const { sql, params } = buildUnifiedStatsQuery({
+      model: filters.model,
+      from: filters.from,
+      to: filters.to,
+      apiKeyHash: filters.apiKeyHash,
+      aggregation: filters.aggregation,
+      apiKeyAggregation: filters.apiKeyAggregation,
+    });
+
+    const statement = testDb.prepare(sql);
+    const result = statement.get(...params) as {
+      stats: string;
+      modelStats: string;
+      timeSeries: string;
+      apiKeyStats: string;
+      apiKeyTimeSeries: string;
+    } | undefined;
+
+    // Handle empty result
+    if (!result) {
+      return {
+        stats: { request_count: 0, total_tokens: 0, total_cost: 0 },
+        modelStats: [],
+        timeSeries: [],
+        apiKeyStats: [],
+        apiKeyTimeSeries: [],
+      };
+    }
+
+    // Parse JSON strings from SQL result
+    const parseJsonSafe = <T>(jsonString: string | null | undefined, fallback: T): T => {
+      if (!jsonString || jsonString === 'null') {
+        return fallback;
+      }
+      try {
+        return JSON.parse(jsonString) as T;
+      } catch {
+        return fallback;
+      }
+    };
+
+    const statsData = parseJsonSafe<UsageStats | null>(result.stats, null);
+    const stats: UsageStats = statsData ?? { request_count: 0, total_tokens: 0, total_cost: 0 };
+
+    return {
+      stats,
+      modelStats: parseJsonSafe<ModelStats[]>(result.modelStats, []),
+      timeSeries: parseJsonSafe<TimeSeriesDataPoint[]>(result.timeSeries, []),
+      apiKeyStats: parseJsonSafe<{ api_key_hash: string; request_count: number; total_tokens: number; total_cost: number }[]>(result.apiKeyStats, []),
+      apiKeyTimeSeries: parseJsonSafe<{ period: string; api_key_hash: string; request_count: number; total_tokens: number; total_cost: number }[]>(result.apiKeyTimeSeries, []),
+    };
+  }
+
+  beforeEach(() => {
+    db = createTestDb();
+    resetMockCounter();
+  });
+
+  afterEach(() => {
+    cleanupTestDb(db);
+  });
+
+  describe('Empty Dataset', () => {
+    it('should return zero stats when no logs exist', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.stats.request_count).toBe(0);
+      expect(result.stats.total_tokens).toBe(0);
+      expect(result.stats.total_cost).toBe(0);
+      expect(result.modelStats).toEqual([]);
+      expect(result.timeSeries).toEqual([]);
+      expect(result.apiKeyStats).toEqual([]);
+      expect(result.apiKeyTimeSeries).toEqual([]);
+    });
+  });
+
+  describe('Single Log', () => {
+    it('should return correct stats for a single log entry', () => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 500,
+        cost: 0.025,
+        api_key_hash: 'hash_key_001',
+      }));
+
+      const result = getUnifiedStatsForDb(db);
+
+      // Overall stats
+      expect(result.stats.request_count).toBe(1);
+      expect(result.stats.total_tokens).toBe(500);
+      expect(result.stats.total_cost).toBeCloseTo(0.025, 6);
+
+      // Model stats
+      expect(result.modelStats).toHaveLength(1);
+      expect(result.modelStats[0].model).toBe('anthropic/claude-3-opus');
+      expect(result.modelStats[0].request_count).toBe(1);
+      expect(result.modelStats[0].total_tokens).toBe(500);
+      expect(result.modelStats[0].total_cost).toBeCloseTo(0.025, 6);
+
+      // API key stats
+      expect(result.apiKeyStats).toHaveLength(1);
+      expect(result.apiKeyStats[0].api_key_hash).toBe('hash_key_001');
+      expect(result.apiKeyStats[0].request_count).toBe(1);
+      expect(result.apiKeyStats[0].total_cost).toBeCloseTo(0.025, 6);
+    });
+  });
+
+  describe('Multiple Logs with Different Models', () => {
+    beforeEach(() => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T11:00:00Z',
+        model: 'openai/gpt-4',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T12:00:00Z',
+        model: 'google/gemini-pro',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_001',
+      }));
+    });
+
+    it('should aggregate overall stats correctly', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.stats.request_count).toBe(3);
+      expect(result.stats.total_tokens).toBe(600);
+      expect(result.stats.total_cost).toBeCloseTo(0.06, 6);
+    });
+
+    it('should group model stats by model', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.modelStats).toHaveLength(3);
+
+      // Models should be ordered by total_cost DESC
+      expect(result.modelStats[0].model).toBe('google/gemini-pro');
+      expect(result.modelStats[0].total_cost).toBeCloseTo(0.03, 6);
+
+      expect(result.modelStats[1].model).toBe('openai/gpt-4');
+      expect(result.modelStats[1].total_cost).toBeCloseTo(0.02, 6);
+
+      expect(result.modelStats[2].model).toBe('anthropic/claude-3-opus');
+      expect(result.modelStats[2].total_cost).toBeCloseTo(0.01, 6);
+    });
+  });
+
+  describe('Multiple Logs with Different API Keys', () => {
+    beforeEach(() => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T11:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_002',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T12:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_001',
+      }));
+    });
+
+    it('should group API key stats by api_key_hash', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.apiKeyStats).toHaveLength(2);
+
+      // Find stats by api_key_hash
+      const key001Stats = result.apiKeyStats.find(s => s.api_key_hash === 'hash_key_001');
+      const key002Stats = result.apiKeyStats.find(s => s.api_key_hash === 'hash_key_002');
+
+      expect(key001Stats).toBeDefined();
+      expect(key001Stats!.request_count).toBe(2);
+      expect(key001Stats!.total_tokens).toBe(400);
+      expect(key001Stats!.total_cost).toBeCloseTo(0.04, 6);
+
+      expect(key002Stats).toBeDefined();
+      expect(key002Stats!.request_count).toBe(1);
+      expect(key002Stats!.total_tokens).toBe(200);
+      expect(key002Stats!.total_cost).toBeCloseTo(0.02, 6);
+    });
+
+    it('should handle NULL api_key_hash as "unknown"', () => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T13:00:00Z',
+        model: 'openai/gpt-4',
+        total_tokens: 50,
+        cost: 0.005,
+        api_key_hash: null,
+      }));
+
+      const result = getUnifiedStatsForDb(db);
+
+      const unknownStats = result.apiKeyStats.find(s => s.api_key_hash === 'unknown');
+      expect(unknownStats).toBeDefined();
+      expect(unknownStats!.request_count).toBe(1);
+      expect(unknownStats!.total_cost).toBeCloseTo(0.005, 6);
+    });
+  });
+
+  describe('Multiple Logs with Different Dates', () => {
+    beforeEach(() => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-01T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-30T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_001',
+      }));
+    });
+
+    it('should group time series by day (default aggregation)', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.timeSeries).toHaveLength(3);
+
+      // Time series should be ordered by period ASC
+      expect(result.timeSeries[0].period).toBe('2024-06-01');
+      expect(result.timeSeries[1].period).toBe('2024-06-15');
+      expect(result.timeSeries[2].period).toBe('2024-06-30');
+    });
+
+    it('should include model in time series data points', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      result.timeSeries.forEach(point => {
+        expect(point.model).toBe('anthropic/claude-3-opus');
+        expect(point.request_count).toBe(1);
+      });
+    });
+
+    it('should group API key time series by period and api_key_hash', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.apiKeyTimeSeries).toHaveLength(3);
+
+      result.apiKeyTimeSeries.forEach(point => {
+        expect(point.api_key_hash).toBe('hash_key_001');
+        expect(point.request_count).toBe(1);
+      });
+    });
+  });
+
+  describe('Model Filter', () => {
+    beforeEach(() => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T11:00:00Z',
+        model: 'openai/gpt-4',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T12:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_002',
+      }));
+    });
+
+    it('should filter by model name', () => {
+      const result = getUnifiedStatsForDb(db, { model: 'anthropic/claude-3-opus' });
+
+      expect(result.stats.request_count).toBe(2);
+      expect(result.stats.total_tokens).toBe(400);
+      expect(result.stats.total_cost).toBeCloseTo(0.04, 6);
+
+      expect(result.modelStats).toHaveLength(1);
+      expect(result.modelStats[0].model).toBe('anthropic/claude-3-opus');
+    });
+
+    it('should return empty results for non-existent model', () => {
+      const result = getUnifiedStatsForDb(db, { model: 'nonexistent/model' });
+
+      expect(result.stats.request_count).toBe(0);
+      expect(result.stats.total_tokens).toBe(0);
+      expect(result.stats.total_cost).toBe(0);
+      expect(result.modelStats).toEqual([]);
+    });
+  });
+
+  describe('Date Range Filter', () => {
+    beforeEach(() => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-01-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-12-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_001',
+      }));
+    });
+
+    it('should filter by from date', () => {
+      const result = getUnifiedStatsForDb(db, { from: '2024-06-01T00:00:00Z' });
+
+      expect(result.stats.request_count).toBe(2);
+      expect(result.stats.total_tokens).toBe(500);
+      expect(result.stats.total_cost).toBeCloseTo(0.05, 6);
+    });
+
+    it('should filter by to date', () => {
+      const result = getUnifiedStatsForDb(db, { to: '2024-06-30T23:59:59Z' });
+
+      expect(result.stats.request_count).toBe(2);
+      expect(result.stats.total_tokens).toBe(300);
+      expect(result.stats.total_cost).toBeCloseTo(0.03, 6);
+    });
+
+    it('should filter by date range (from and to)', () => {
+      const result = getUnifiedStatsForDb(db, {
+        from: '2024-06-01T00:00:00Z',
+        to: '2024-06-30T23:59:59Z',
+      });
+
+      expect(result.stats.request_count).toBe(1);
+      expect(result.stats.total_tokens).toBe(200);
+      expect(result.stats.total_cost).toBeCloseTo(0.02, 6);
+    });
+
+    it('should return empty results when date range matches no logs', () => {
+      const result = getUnifiedStatsForDb(db, {
+        from: '2025-01-01T00:00:00Z',
+        to: '2025-12-31T23:59:59Z',
+      });
+
+      expect(result.stats.request_count).toBe(0);
+      expect(result.stats.total_tokens).toBe(0);
+      expect(result.stats.total_cost).toBe(0);
+    });
+  });
+
+  describe('API Key Hash Filter', () => {
+    beforeEach(() => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T11:00:00Z',
+        model: 'openai/gpt-4',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_002',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T12:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_001',
+      }));
+    });
+
+    it('should filter by API key hash', () => {
+      const result = getUnifiedStatsForDb(db, { apiKeyHash: 'hash_key_001' });
+
+      expect(result.stats.request_count).toBe(2);
+      expect(result.stats.total_tokens).toBe(400);
+      expect(result.stats.total_cost).toBeCloseTo(0.04, 6);
+
+      expect(result.apiKeyStats).toHaveLength(1);
+      expect(result.apiKeyStats[0].api_key_hash).toBe('hash_key_001');
+    });
+
+    it('should return empty results for non-existent API key hash', () => {
+      const result = getUnifiedStatsForDb(db, { apiKeyHash: 'nonexistent_hash' });
+
+      expect(result.stats.request_count).toBe(0);
+      expect(result.stats.total_tokens).toBe(0);
+      expect(result.stats.total_cost).toBe(0);
+    });
+  });
+
+  describe('Combined Filters', () => {
+    beforeEach(() => {
+      // January: Claude with key 001
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-01-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      // June: Claude with key 001
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_001',
+      }));
+      // June: GPT with key 001
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T11:00:00Z',
+        model: 'openai/gpt-4',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_001',
+      }));
+      // June: Claude with key 002
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T12:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 400,
+        cost: 0.04,
+        api_key_hash: 'hash_key_002',
+      }));
+      // December: Claude with key 001
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-12-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 500,
+        cost: 0.05,
+        api_key_hash: 'hash_key_001',
+      }));
+    });
+
+    it('should apply model + date range filters together', () => {
+      const result = getUnifiedStatsForDb(db, {
+        model: 'anthropic/claude-3-opus',
+        from: '2024-06-01T00:00:00Z',
+        to: '2024-12-31T23:59:59Z',
+      });
+
+      // Should match: June Claude (key 001 + key 002) and December Claude (key 001)
+      expect(result.stats.request_count).toBe(3);
+      expect(result.stats.total_tokens).toBe(1100); // 200 + 400 + 500
+      expect(result.stats.total_cost).toBeCloseTo(0.11, 6); // 0.02 + 0.04 + 0.05
+    });
+
+    it('should apply model + API key hash filters together', () => {
+      const result = getUnifiedStatsForDb(db, {
+        model: 'anthropic/claude-3-opus',
+        apiKeyHash: 'hash_key_001',
+      });
+
+      // Should match: January, June, December Claude with key 001
+      expect(result.stats.request_count).toBe(3);
+      expect(result.stats.total_tokens).toBe(800); // 100 + 200 + 500
+      expect(result.stats.total_cost).toBeCloseTo(0.08, 6);
+    });
+
+    it('should apply date range + API key hash filters together', () => {
+      const result = getUnifiedStatsForDb(db, {
+        from: '2024-06-01T00:00:00Z',
+        to: '2024-06-30T23:59:59Z',
+        apiKeyHash: 'hash_key_001',
+      });
+
+      // Should match: June Claude (key 001) and June GPT (key 001)
+      expect(result.stats.request_count).toBe(2);
+      expect(result.stats.total_tokens).toBe(500); // 200 + 300
+      expect(result.stats.total_cost).toBeCloseTo(0.05, 6);
+    });
+
+    it('should apply all filters (model + date range + API key hash) together', () => {
+      const result = getUnifiedStatsForDb(db, {
+        model: 'anthropic/claude-3-opus',
+        from: '2024-06-01T00:00:00Z',
+        to: '2024-06-30T23:59:59Z',
+        apiKeyHash: 'hash_key_001',
+      });
+
+      // Should match: only June Claude with key 001
+      expect(result.stats.request_count).toBe(1);
+      expect(result.stats.total_tokens).toBe(200);
+      expect(result.stats.total_cost).toBeCloseTo(0.02, 6);
+    });
+  });
+
+  describe('Statistics Consistency', () => {
+    beforeEach(() => {
+      // Insert diverse data
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T11:00:00Z',
+        model: 'openai/gpt-4',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_002',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-16T10:00:00Z',
+        model: 'google/gemini-pro',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_001',
+      }));
+    });
+
+    it('should have consistent total_cost: sum(modelStats.total_cost) === stats.total_cost', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      const sumModelCost = result.modelStats.reduce((sum, m) => sum + m.total_cost, 0);
+      expect(sumModelCost).toBeCloseTo(result.stats.total_cost, 6);
+    });
+
+    it('should have consistent request_count: sum(modelStats.request_count) === stats.request_count', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      const sumModelRequests = result.modelStats.reduce((sum, m) => sum + m.request_count, 0);
+      expect(sumModelRequests).toBe(result.stats.request_count);
+    });
+
+    it('should have consistent total_tokens: sum(modelStats.total_tokens) === stats.total_tokens', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      const sumModelTokens = result.modelStats.reduce((sum, m) => sum + m.total_tokens, 0);
+      expect(sumModelTokens).toBe(result.stats.total_tokens);
+    });
+
+    it('should have consistent apiKeyStats: sum(apiKeyStats.total_cost) === stats.total_cost', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      const sumApiKeyCost = result.apiKeyStats.reduce((sum, k) => sum + k.total_cost, 0);
+      expect(sumApiKeyCost).toBeCloseTo(result.stats.total_cost, 6);
+    });
+
+    it('should have consistent timeSeries: sum(timeSeries.total_cost) === stats.total_cost', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      const sumTimeSeriesCost = result.timeSeries.reduce((sum, t) => sum + t.total_cost, 0);
+      expect(sumTimeSeriesCost).toBeCloseTo(result.stats.total_cost, 6);
+    });
+
+    it('should have consistent apiKeyTimeSeries: sum(apiKeyTimeSeries.total_cost) === stats.total_cost', () => {
+      const result = getUnifiedStatsForDb(db);
+
+      const sumApiKeyTimeSeriesCost = result.apiKeyTimeSeries.reduce((sum, t) => sum + t.total_cost, 0);
+      expect(sumApiKeyTimeSeriesCost).toBeCloseTo(result.stats.total_cost, 6);
+    });
+
+    it('should maintain consistency with filters applied', () => {
+      const result = getUnifiedStatsForDb(db, {
+        model: 'anthropic/claude-3-opus',
+        from: '2024-06-01T00:00:00Z',
+      });
+
+      // All aggregations should still be consistent
+      const sumModelCost = result.modelStats.reduce((sum, m) => sum + m.total_cost, 0);
+      const sumApiKeyCost = result.apiKeyStats.reduce((sum, k) => sum + k.total_cost, 0);
+      const sumTimeSeriesCost = result.timeSeries.reduce((sum, t) => sum + t.total_cost, 0);
+      const sumApiKeyTimeSeriesCost = result.apiKeyTimeSeries.reduce((sum, t) => sum + t.total_cost, 0);
+
+      expect(sumModelCost).toBeCloseTo(result.stats.total_cost, 6);
+      expect(sumApiKeyCost).toBeCloseTo(result.stats.total_cost, 6);
+      expect(sumTimeSeriesCost).toBeCloseTo(result.stats.total_cost, 6);
+      expect(sumApiKeyTimeSeriesCost).toBeCloseTo(result.stats.total_cost, 6);
+    });
+  });
+
+  describe('Aggregation Periods', () => {
+    beforeEach(() => {
+      // Insert logs at different hours on the same day
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T09:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T09:30:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T14:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 200,
+        cost: 0.02,
+        api_key_hash: 'hash_key_001',
+      }));
+      // Different day
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-20T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 300,
+        cost: 0.03,
+        api_key_hash: 'hash_key_001',
+      }));
+    });
+
+    it('should aggregate by hour', () => {
+      const result = getUnifiedStatsForDb(db, { aggregation: 'hour' });
+
+      // Should have 3 time periods: 09:00, 14:00 on June 15, and 10:00 on June 20
+      expect(result.timeSeries).toHaveLength(3);
+
+      // Check format is hour-based
+      result.timeSeries.forEach(point => {
+        expect(point.period).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:00:00$/);
+      });
+
+      // First period should have 2 requests (09:00 and 09:30 grouped)
+      const hour09 = result.timeSeries.find(p => p.period === '2024-06-15T09:00:00');
+      expect(hour09).toBeDefined();
+      expect(hour09!.request_count).toBe(2);
+      expect(hour09!.total_tokens).toBe(200);
+    });
+
+    it('should aggregate by day (default)', () => {
+      const result = getUnifiedStatsForDb(db, { aggregation: 'day' });
+
+      // Should have 2 time periods: June 15 and June 20
+      expect(result.timeSeries).toHaveLength(2);
+
+      // Check format is day-based
+      result.timeSeries.forEach(point => {
+        expect(point.period).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      });
+
+      // June 15 should have 3 requests
+      const june15 = result.timeSeries.find(p => p.period === '2024-06-15');
+      expect(june15).toBeDefined();
+      expect(june15!.request_count).toBe(3);
+      expect(june15!.total_tokens).toBe(400);
+    });
+
+    it('should aggregate by week', () => {
+      const result = getUnifiedStatsForDb(db, { aggregation: 'week' });
+
+      // Check format is week-based (YYYY-WW)
+      result.timeSeries.forEach(point => {
+        expect(point.period).toMatch(/^\d{4}-\d{2}$/);
+      });
+    });
+
+    it('should support different aggregation for API key time series', () => {
+      const result = getUnifiedStatsForDb(db, {
+        aggregation: 'day',
+        apiKeyAggregation: 'hour',
+      });
+
+      // Time series should use day aggregation
+      result.timeSeries.forEach(point => {
+        expect(point.period).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      });
+
+      // API key time series should use hour aggregation
+      result.apiKeyTimeSeries.forEach(point => {
+        expect(point.period).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:00:00$/);
+      });
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle logs with null token values', () => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: null,
+        cost: 0.01,
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T11:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: null,
+        api_key_hash: 'hash_key_001',
+      }));
+
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.stats.request_count).toBe(2);
+      // Null values should be treated as 0 via COALESCE
+      expect(result.stats.total_tokens).toBe(100);
+      expect(result.stats.total_cost).toBeCloseTo(0.01, 6);
+    });
+
+    it('should handle logs with zero values', () => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 0,
+        cost: 0,
+        api_key_hash: 'hash_key_001',
+      }));
+
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.stats.request_count).toBe(1);
+      expect(result.stats.total_tokens).toBe(0);
+      expect(result.stats.total_cost).toBe(0);
+    });
+
+    it('should handle large number of logs', () => {
+      // Insert 50 logs
+      for (let i = 0; i < 50; i++) {
+        insertTestLog(db, createMockUsageLog({
+          timestamp: `2024-06-15T${String(i % 24).padStart(2, '0')}:00:00Z`,
+          model: i % 2 === 0 ? 'anthropic/claude-3-opus' : 'openai/gpt-4',
+          total_tokens: 100,
+          cost: 0.01,
+          api_key_hash: `hash_key_${String(i % 5).padStart(3, '0')}`,
+        }));
+      }
+
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.stats.request_count).toBe(50);
+      expect(result.stats.total_tokens).toBe(5000);
+      expect(result.stats.total_cost).toBeCloseTo(0.5, 6);
+
+      // Should have 2 models
+      expect(result.modelStats).toHaveLength(2);
+
+      // Should have 5 API keys
+      expect(result.apiKeyStats).toHaveLength(5);
+
+      // Verify consistency
+      const sumModelCost = result.modelStats.reduce((sum, m) => sum + m.total_cost, 0);
+      expect(sumModelCost).toBeCloseTo(result.stats.total_cost, 6);
+    });
+
+    it('should preserve decimal precision in cost calculations', () => {
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T10:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.000001, // Very small cost
+        api_key_hash: 'hash_key_001',
+      }));
+      insertTestLog(db, createMockUsageLog({
+        timestamp: '2024-06-15T11:00:00Z',
+        model: 'anthropic/claude-3-opus',
+        total_tokens: 100,
+        cost: 0.000002,
+        api_key_hash: 'hash_key_001',
+      }));
+
+      const result = getUnifiedStatsForDb(db);
+
+      expect(result.stats.total_cost).toBeCloseTo(0.000003, 8);
     });
   });
 });

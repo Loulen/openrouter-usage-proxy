@@ -12,6 +12,7 @@ import {
   getTimeSeries,
   getApiKeyStats,
   getApiKeyTimeSeries,
+  getUnifiedStats,
 } from '../db/index.js';
 import { getApiKeyById } from '../db/settings.js';
 import { hashApiKey } from '../middleware/proxy.js';
@@ -26,6 +27,7 @@ import type {
   AggregationPeriod,
   ApiKeyStats,
   ApiKeyTimeSeriesDataPoint,
+  UnifiedStatsResponse,
 } from '../types/index.js';
 
 /**
@@ -257,13 +259,25 @@ router.get('/time-series', (req: Request, res: Response<TimeSeriesDataPoint[] | 
  * Supports optional query parameters for date filtering:
  *   - from: Filter stats from this date (ISO 8601)
  *   - to: Filter stats to this date (ISO 8601)
+ *   - apiKeyId: Filter by API key ID (UUID, resolved to hash internally)
  *
  * @returns Array of ApiKeyStats objects with per-API-key breakdown
  */
 router.get('/api-key-stats', (req: Request, res: Response<ApiKeyStats[] | ApiErrorResponse>, next: NextFunction) => {
   try {
-    const filters = parseFilterParams(req.query);
-    const apiKeyStats = getApiKeyStats({ from: filters.from, to: filters.to });
+    const parsedFilters = parseFilterParams(req.query);
+    const { filters, error } = resolveApiKeyFilter(parsedFilters);
+
+    if (error) {
+      res.status(400).json({
+        error: true,
+        message: error,
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
+
+    const apiKeyStats = getApiKeyStats({ from: filters.from, to: filters.to, apiKeyHash: filters.apiKeyHash });
     res.json(apiKeyStats);
   } catch (err) {
     next(err);
@@ -278,12 +292,23 @@ router.get('/api-key-stats', (req: Request, res: Response<ApiKeyStats[] | ApiErr
  *   - from: Filter stats from this date (ISO 8601)
  *   - to: Filter stats to this date (ISO 8601)
  *   - aggregation: Time period aggregation (hour, day, week) - defaults to 'day'
+ *   - apiKeyId: Filter by API key ID (UUID, resolved to hash internally)
  *
  * @returns Array of ApiKeyTimeSeriesDataPoint objects with period, api_key_hash, and stats
  */
 router.get('/api-key-time-series', (req: Request, res: Response<ApiKeyTimeSeriesDataPoint[] | ApiErrorResponse>, next: NextFunction) => {
   try {
-    const filters = parseFilterParams(req.query);
+    const parsedFilters = parseFilterParams(req.query);
+    const { filters, error } = resolveApiKeyFilter(parsedFilters);
+
+    if (error) {
+      res.status(400).json({
+        error: true,
+        message: error,
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
 
     // Parse aggregation parameter with validation
     let aggregation: AggregationPeriod = 'day';
@@ -298,8 +323,69 @@ router.get('/api-key-time-series', (req: Request, res: Response<ApiKeyTimeSeries
       from: filters.from,
       to: filters.to,
       aggregation,
+      apiKeyHash: filters.apiKeyHash,
     });
     res.json(apiKeyTimeSeries);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/logs/unified-stats
+ * Returns all statistics (aggregated stats, model stats, time-series, API key stats)
+ * computed from a single unified SQL query with consistent filtering
+ * Supports optional query parameters:
+ *   - model: Filter by model name (exact match)
+ *   - from: Filter stats from this date (ISO 8601)
+ *   - to: Filter stats to this date (ISO 8601)
+ *   - apiKeyId: Filter by API key ID (UUID, resolved to hash internally)
+ *   - aggregation: Time period aggregation for model time-series (hour, day, week) - defaults to 'day'
+ *   - apiKeyAggregation: Time period aggregation for API key time-series (hour, day, week) - defaults to 'day'
+ *
+ * @returns UnifiedStatsResponse with all statistics computed from the same filtered dataset
+ */
+router.get('/unified-stats', (req: Request, res: Response<UnifiedStatsResponse | ApiErrorResponse>, next: NextFunction) => {
+  try {
+    const parsedFilters = parseFilterParams(req.query);
+    const { filters, error } = resolveApiKeyFilter(parsedFilters);
+
+    if (error) {
+      res.status(400).json({
+        error: true,
+        message: error,
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
+
+    // Parse aggregation parameter for model time-series with validation
+    let aggregation: AggregationPeriod = 'day';
+    if (typeof req.query.aggregation === 'string') {
+      const agg = req.query.aggregation.trim().toLowerCase();
+      if (agg === 'hour' || agg === 'day' || agg === 'week') {
+        aggregation = agg;
+      }
+    }
+
+    // Parse apiKeyAggregation parameter for API key time-series with validation
+    let apiKeyAggregation: AggregationPeriod = 'day';
+    if (typeof req.query.apiKeyAggregation === 'string') {
+      const agg = req.query.apiKeyAggregation.trim().toLowerCase();
+      if (agg === 'hour' || agg === 'day' || agg === 'week') {
+        apiKeyAggregation = agg;
+      }
+    }
+
+    const unifiedStats = getUnifiedStats({
+      model: filters.model,
+      from: filters.from,
+      to: filters.to,
+      apiKeyHash: filters.apiKeyHash,
+      aggregation,
+      apiKeyAggregation,
+    });
+    res.json(unifiedStats);
   } catch (err) {
     next(err);
   }

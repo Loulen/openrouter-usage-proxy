@@ -460,3 +460,20 @@ export interface BarChartCardProps {
   /** Chart color scheme (optional) */
   colors?: string[];
 }
+
+/**
+ * Unified statistics response from /api/logs/unified-stats endpoint
+ * All statistics are computed from the same filtered dataset, guaranteeing consistency
+ */
+export interface UnifiedStatsResponse {
+  /** Overall aggregated statistics (total requests, tokens, cost) */
+  stats: UsageStats;
+  /** Per-model statistics breakdown */
+  modelStats: ModelStats[];
+  /** Time-series data grouped by period and model */
+  timeSeries: TimeSeriesDataPoint[];
+  /** Per-API-key statistics breakdown (from local usage logs) */
+  apiKeyStats: ApiKeyStatsData[];
+  /** Time-series data grouped by period and API key */
+  apiKeyTimeSeries: ApiKeyTimeSeriesDataPoint[];
+}
