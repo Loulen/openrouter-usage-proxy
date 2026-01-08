@@ -170,7 +170,7 @@ export function getModels(): ModelsResponse {
  */
 export function getFilteredLogs(filters: FilterParams = {}): UsageLog[] {
   // If no filters provided, use the prepared statement for better performance
-  if (!filters.model && !filters.from && !filters.to) {
+  if (!filters.model && !filters.from && !filters.to && !filters.apiKeyHash) {
     return selectAllStatement.all() as UsageLog[];
   }
 
@@ -190,7 +190,7 @@ export function getFilteredLogs(filters: FilterParams = {}): UsageLog[] {
  */
 export function getFilteredStats(filters: FilterParams = {}): UsageStats {
   // If no filters provided, use the prepared statement for better performance
-  if (!filters.model && !filters.from && !filters.to) {
+  if (!filters.model && !filters.from && !filters.to && !filters.apiKeyHash) {
     return selectStatsStatement.get() as UsageStats;
   }
 
