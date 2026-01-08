@@ -190,6 +190,12 @@ export const WHERE_FROM = `timestamp >= ?`;
 export const WHERE_TO = `timestamp <= ?`;
 
 /**
+ * SQL WHERE clause fragment for API key hash filtering
+ * Uses exact match on api_key_hash
+ */
+export const WHERE_API_KEY_HASH = `api_key_hash = ?`;
+
+/**
  * SQL ORDER BY clause for logs
  * Most recent first
  */
@@ -236,13 +242,14 @@ export const GROUP_BY_MODEL_ORDER_BY_COST = `
  * Helper function to build a filtered logs query dynamically
  * Constructs WHERE clause based on which filter parameters are provided
  *
- * @param filters - Object containing optional model, from, and to filters
+ * @param filters - Object containing optional model, from, to, and apiKeyHash filters
  * @returns Object with sql query string and params array
  */
 export function buildFilteredLogsQuery(filters: {
   model?: string;
   from?: string;
   to?: string;
+  apiKeyHash?: string;
 }): { sql: string; params: (string | undefined)[] } {
   const conditions: string[] = [];
   const params: (string | undefined)[] = [];
@@ -260,6 +267,11 @@ export function buildFilteredLogsQuery(filters: {
   if (filters.to) {
     conditions.push(WHERE_TO);
     params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
   }
 
   let sql = SELECT_LOGS_BASE;
@@ -275,13 +287,14 @@ export function buildFilteredLogsQuery(filters: {
  * Helper function to build a filtered stats query dynamically
  * Constructs WHERE clause based on which filter parameters are provided
  *
- * @param filters - Object containing optional model, from, and to filters
+ * @param filters - Object containing optional model, from, to, and apiKeyHash filters
  * @returns Object with sql query string and params array
  */
 export function buildFilteredStatsQuery(filters: {
   model?: string;
   from?: string;
   to?: string;
+  apiKeyHash?: string;
 }): { sql: string; params: (string | undefined)[] } {
   const conditions: string[] = [];
   const params: (string | undefined)[] = [];
@@ -299,6 +312,11 @@ export function buildFilteredStatsQuery(filters: {
   if (filters.to) {
     conditions.push(WHERE_TO);
     params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
   }
 
   let sql = `
@@ -319,12 +337,13 @@ export function buildFilteredStatsQuery(filters: {
  * Helper function to build a filtered model stats query dynamically
  * Constructs WHERE clause for date range filtering on model statistics
  *
- * @param filters - Object containing optional from and to filters
+ * @param filters - Object containing optional from, to, and apiKeyHash filters
  * @returns Object with sql query string and params array
  */
 export function buildFilteredModelStatsQuery(filters: {
   from?: string;
   to?: string;
+  apiKeyHash?: string;
 }): { sql: string; params: (string | undefined)[] } {
   const conditions: string[] = [];
   const params: (string | undefined)[] = [];
@@ -337,6 +356,11 @@ export function buildFilteredModelStatsQuery(filters: {
   if (filters.to) {
     conditions.push(WHERE_TO);
     params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
   }
 
   let sql = SELECT_MODEL_STATS_BASE;
@@ -362,10 +386,108 @@ export const AGGREGATION_FORMATS: Record<string, string> = {
  * Helper function to build a time-series query with aggregation
  * Groups data by time period and model for line chart visualization
  *
- * @param filters - Object containing optional from, to, and aggregation filters
+ * @param filters - Object containing optional from, to, aggregation, and apiKeyHash filters
  * @returns Object with sql query string and params array
  */
 export function buildTimeSeriesQuery(filters: {
+  from?: string;
+  to?: string;
+  aggregation?: 'hour' | 'day' | 'week';
+  apiKeyHash?: string;
+}): { sql: string; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+  const aggregation = filters.aggregation || 'day';
+  const dateFormat = AGGREGATION_FORMATS[aggregation] || AGGREGATION_FORMATS.day;
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
+  }
+
+  let sql = `
+  SELECT
+    strftime('${dateFormat}', timestamp) as period,
+    model,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM usage_logs`;
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  sql += `
+  GROUP BY period, model
+  ORDER BY period ASC, model ASC`;
+
+  return { sql, params };
+}
+
+/**
+ * Helper function to build an API key statistics query
+ * Groups data by api_key_hash for pie chart visualization of API key usage distribution
+ * NULL api_key_hash values are coalesced to 'unknown' for backward compatibility
+ *
+ * @param filters - Object containing optional from and to date filters
+ * @returns Object with sql query string and params array
+ */
+export function buildApiKeyStatsQuery(filters: {
+  from?: string;
+  to?: string;
+}): { sql: string; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  let sql = `
+  SELECT
+    COALESCE(api_key_hash, 'unknown') as api_key_hash,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM usage_logs`;
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  sql += `
+  GROUP BY api_key_hash
+  ORDER BY total_cost DESC`;
+
+  return { sql, params };
+}
+
+/**
+ * Helper function to build an API key time-series query with aggregation
+ * Groups data by time period and api_key_hash for bar chart visualization
+ * NULL api_key_hash values are coalesced to 'unknown' for backward compatibility
+ *
+ * @param filters - Object containing optional from, to, and aggregation filters
+ * @returns Object with sql query string and params array
+ */
+export function buildApiKeyTimeSeriesQuery(filters: {
   from?: string;
   to?: string;
   aggregation?: 'hour' | 'day' | 'week';
@@ -388,7 +510,7 @@ export function buildTimeSeriesQuery(filters: {
   let sql = `
   SELECT
     strftime('${dateFormat}', timestamp) as period,
-    model,
+    COALESCE(api_key_hash, 'unknown') as api_key_hash,
     COUNT(*) as request_count,
     COALESCE(SUM(total_tokens), 0) as total_tokens,
     COALESCE(SUM(cost), 0) as total_cost
@@ -399,8 +521,8 @@ export function buildTimeSeriesQuery(filters: {
   }
 
   sql += `
-  GROUP BY period, model
-  ORDER BY period ASC, model ASC`;
+  GROUP BY period, api_key_hash
+  ORDER BY period ASC, api_key_hash ASC`;
 
   return { sql, params };
 }
