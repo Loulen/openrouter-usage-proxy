@@ -332,6 +332,38 @@ export interface ApiKeyStats {
 }
 
 /**
+ * Statistics breakdown for a single API key from local usage logs
+ * Used for API key comparison and filtering analytics
+ */
+export interface ApiKeyStatsData {
+  /** SHA-256 hash of the API key, or 'unknown' for NULL values */
+  api_key_hash: string;
+  /** Number of requests made with this API key */
+  request_count: number;
+  /** Total tokens used by this API key */
+  total_tokens: number;
+  /** Total cost in USD for this API key */
+  total_cost: number;
+}
+
+/**
+ * Time-series data point for API key consumption over time
+ * Used for line/bar chart visualization filtered by API key
+ */
+export interface ApiKeyTimeSeriesDataPoint {
+  /** Period start timestamp */
+  period: string;
+  /** SHA-256 hash of the API key, or 'unknown' for NULL values */
+  api_key_hash: string;
+  /** Number of requests in this period for this API key */
+  request_count: number;
+  /** Total tokens used in this period for this API key */
+  total_tokens: number;
+  /** Total cost in USD for this period for this API key */
+  total_cost: number;
+}
+
+/**
  * Input for creating a new API key
  */
 export interface ApiKeyInput {
@@ -427,4 +459,21 @@ export interface BarChartCardProps {
   onAggregationChange: (aggregation: AggregationPeriod) => void;
   /** Chart color scheme (optional) */
   colors?: string[];
+}
+
+/**
+ * Unified statistics response from /api/logs/unified-stats endpoint
+ * All statistics are computed from the same filtered dataset, guaranteeing consistency
+ */
+export interface UnifiedStatsResponse {
+  /** Overall aggregated statistics (total requests, tokens, cost) */
+  stats: UsageStats;
+  /** Per-model statistics breakdown */
+  modelStats: ModelStats[];
+  /** Time-series data grouped by period and model */
+  timeSeries: TimeSeriesDataPoint[];
+  /** Per-API-key statistics breakdown (from local usage logs) */
+  apiKeyStats: ApiKeyStatsData[];
+  /** Time-series data grouped by period and API key */
+  apiKeyTimeSeries: ApiKeyTimeSeriesDataPoint[];
 }

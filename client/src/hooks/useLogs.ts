@@ -30,6 +30,9 @@ function buildQueryString(filters?: FilterParams): string {
   if (filters.to) {
     params.append('to', filters.to);
   }
+  if (filters.apiKeyId) {
+    params.append('apiKeyId', filters.apiKeyId);
+  }
 
   const queryString = params.toString();
   return queryString ? `?${queryString}` : '';
@@ -112,7 +115,7 @@ export function useLogs(filters?: FilterParams): UseLogsState & { refetch: () =>
     } finally {
       setLoading(false);
     }
-  }, [filters?.model, filters?.from, filters?.to]);
+  }, [filters?.model, filters?.from, filters?.to, filters?.apiKeyId]);
 
   useEffect(() => {
     fetchData();

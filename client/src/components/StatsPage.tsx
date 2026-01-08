@@ -3,7 +3,6 @@ import { PieChartCard } from './PieChartCard';
 import { LineChartCard } from './LineChartCard';
 import { BarChartCard } from './BarChartCard';
 import { useSettings } from '../hooks/useSettings';
-import { useApiKeys } from '../hooks/useApiKeys';
 import type {
   StatsPageProps,
   ModelStats,
@@ -11,30 +10,44 @@ import type {
   FilterParams,
   TimeSeriesDataPoint,
   AggregationPeriod,
+  ApiKeyStatsData,
+  ApiKeyTimeSeriesDataPoint,
+  UnifiedStatsResponse,
 } from '../types';
 
 /**
- * Builds a query string from filter parameters
- * Only includes non-empty filter values
+ * Builds a query string for the unified stats endpoint
+ * Includes filter parameters and aggregation settings
  *
- * @param filters - Filter parameters (model, from, to)
- * @returns Query string starting with '?' or empty string if no filters
+ * @param filters - Filter parameters (model, from, to, apiKeyId)
+ * @param aggregation - Aggregation period for model time-series
+ * @param apiKeyAggregation - Aggregation period for API key time-series
+ * @returns Query string starting with '?' or empty string if no params
  */
-function buildQueryString(filters?: FilterParams): string {
-  if (!filters) {
-    return '';
-  }
-
+function buildUnifiedStatsQueryString(
+  filters?: FilterParams,
+  aggregation?: AggregationPeriod,
+  apiKeyAggregation?: AggregationPeriod
+): string {
   const params = new URLSearchParams();
 
-  if (filters.model) {
+  if (filters?.model) {
     params.append('model', filters.model);
   }
-  if (filters.from) {
+  if (filters?.from) {
     params.append('from', filters.from);
   }
-  if (filters.to) {
+  if (filters?.to) {
     params.append('to', filters.to);
+  }
+  if (filters?.apiKeyId) {
+    params.append('apiKeyId', filters.apiKeyId);
+  }
+  if (aggregation) {
+    params.append('aggregation', aggregation);
+  }
+  if (apiKeyAggregation) {
+    params.append('apiKeyAggregation', apiKeyAggregation);
   }
 
   const queryString = params.toString();
@@ -86,73 +99,84 @@ function transformToChartData(
  * When API key tracking is enabled, shows additional charts for API key distribution
  */
 export function StatsPage({ filters, loading: filtersLoading = false }: StatsPageProps): JSX.Element {
+  // State for unified stats data
   const [modelStats, setModelStats] = useState<ModelStats[]>([]);
   const [timeSeries, setTimeSeries] = useState<TimeSeriesDataPoint[]>([]);
+  const [apiKeyStats, setApiKeyStats] = useState<ApiKeyStatsData[]>([]);
+  const [apiKeyTimeSeries, setApiKeyTimeSeries] = useState<ApiKeyTimeSeriesDataPoint[]>([]);
+
+  // Aggregation controls
   const [aggregation, setAggregation] = useState<AggregationPeriod>('day');
   const [apiKeyAggregation, setApiKeyAggregation] = useState<AggregationPeriod>('day');
-  const [loading, setLoading] = useState(true);
-  const [timeSeriesLoading, setTimeSeriesLoading] = useState(true);
+
+  // Single loading state for unified stats fetch
+  const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Fetch settings and API key balances for API key charts
+  // Fetch settings for API key tracking configuration
   const { settings, loading: settingsLoading } = useSettings();
-  const { balances: apiKeyBalances, loading: apiKeysLoading } = useApiKeys();
 
-  const fetchModelStats = useCallback(async () => {
-    setLoading(true);
+  // Hash-to-label map for API key display (separate fetch, not part of unified stats)
+  const [hashLabelMap, setHashLabelMap] = useState<Record<string, string>>({});
+
+  /**
+   * Fetches all statistics from the unified endpoint
+   * Sets all state variables from a single response, ensuring consistency
+   */
+  const fetchUnifiedStats = useCallback(async () => {
+    setStatsLoading(true);
     setError(null);
 
     try {
-      const queryString = buildQueryString(filters);
-      const response = await fetch(`/api/logs/model-stats${queryString}`);
+      const queryString = buildUnifiedStatsQueryString(filters, aggregation, apiKeyAggregation);
+      const response = await fetch(`/api/logs/unified-stats${queryString}`);
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch model stats: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch statistics: ${response.status} ${response.statusText}`);
       }
 
-      const data: ModelStats[] = await response.json();
-      setModelStats(data);
+      const data: UnifiedStatsResponse = await response.json();
+
+      // Update all state variables from the unified response
+      setModelStats(data.modelStats);
+      setTimeSeries(data.timeSeries);
+      setApiKeyStats(data.apiKeyStats);
+      setApiKeyTimeSeries(data.apiKeyTimeSeries);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      setStatsLoading(false);
     }
-  }, [filters?.model, filters?.from, filters?.to]);
+  }, [filters?.model, filters?.from, filters?.to, filters?.apiKeyId, aggregation, apiKeyAggregation]);
 
-  const fetchTimeSeries = useCallback(async () => {
-    setTimeSeriesLoading(true);
-
+  /**
+   * Fetches the hash-to-label mapping for API keys
+   * This is kept separate as it's not part of the unified stats endpoint
+   */
+  const fetchHashLabelMap = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (filters?.from) params.append('from', filters.from);
-      if (filters?.to) params.append('to', filters.to);
-      params.append('aggregation', aggregation);
-
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const response = await fetch(`/api/logs/time-series${queryString}`);
+      const response = await fetch('/api/api-keys/hash-map');
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch time series: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch hash map: ${response.status} ${response.statusText}`);
       }
 
-      const data: TimeSeriesDataPoint[] = await response.json();
-      setTimeSeries(data);
-    } catch (err) {
-      // Don't override main error state, silently handle time series fetch errors
-      // The main model stats error state already covers critical failures
-      void err;
-    } finally {
-      setTimeSeriesLoading(false);
+      const data: Record<string, string> = await response.json();
+      setHashLabelMap(data);
+    } catch {
+      // Silently handle hash map fetch errors - will display truncated hashes instead
     }
-  }, [filters?.from, filters?.to, aggregation]);
+  }, []);
 
+  // Fetch unified stats when filters or aggregation settings change
   useEffect(() => {
-    fetchModelStats();
-  }, [fetchModelStats]);
+    fetchUnifiedStats();
+  }, [fetchUnifiedStats]);
 
+  // Fetch hash label map once on mount
   useEffect(() => {
-    fetchTimeSeries();
-  }, [fetchTimeSeries]);
+    fetchHashLabelMap();
+  }, [fetchHashLabelMap]);
 
   // Calculate summary statistics
   const totalRequests = modelStats.reduce((sum, stat) => sum + stat.request_count, 0);
@@ -166,86 +190,73 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
 
   // Check if API key tracking is enabled
   const apiKeyTrackingEnabled = settings?.apiKeyTrackingEnabled ?? false;
-  const hasApiKeyData = apiKeyBalances.length > 0 && !apiKeyBalances.every((b) => b.error);
+  const hasApiKeyData = apiKeyStats.length > 0;
 
-  // Transform API key balances to pie chart data (cost distribution by monthly usage)
+  /**
+   * Maps an api_key_hash to a display label
+   * - 'unknown' -> "Unknown"
+   * - hash found in hashLabelMap -> label
+   * - hash not found -> first 8 characters of hash
+   */
+  const getApiKeyLabel = useCallback((hash: string): string => {
+    if (hash === 'unknown') {
+      return 'Unknown';
+    }
+    return hashLabelMap[hash] ?? hash.substring(0, 8);
+  }, [hashLabelMap]);
+
+  // Transform API key stats to pie chart data for requests
+  const apiKeyRequestsData = useMemo<ChartDataPoint[]>(() => {
+    if (!apiKeyTrackingEnabled || apiKeyStats.length === 0) {
+      return [];
+    }
+    return apiKeyStats.map((stat) => ({
+      name: getApiKeyLabel(stat.api_key_hash),
+      value: stat.request_count,
+    }));
+  }, [apiKeyTrackingEnabled, apiKeyStats, getApiKeyLabel]);
+
+  // Transform API key stats to pie chart data for tokens
+  const apiKeyTokensData = useMemo<ChartDataPoint[]>(() => {
+    if (!apiKeyTrackingEnabled || apiKeyStats.length === 0) {
+      return [];
+    }
+    return apiKeyStats.map((stat) => ({
+      name: getApiKeyLabel(stat.api_key_hash),
+      value: stat.total_tokens,
+    }));
+  }, [apiKeyTrackingEnabled, apiKeyStats, getApiKeyLabel]);
+
+  // Transform API key stats to pie chart data for cost
   const apiKeyCostData = useMemo<ChartDataPoint[]>(() => {
-    if (!apiKeyTrackingEnabled || apiKeyBalances.length === 0) {
+    if (!apiKeyTrackingEnabled || apiKeyStats.length === 0) {
       return [];
     }
-    return apiKeyBalances
-      .filter((balance) => !balance.error && balance.usageMonthly > 0)
-      .map((balance) => ({
-        name: balance.label,
-        value: balance.usageMonthly,
-      }));
-  }, [apiKeyTrackingEnabled, apiKeyBalances]);
+    return apiKeyStats.map((stat) => ({
+      name: getApiKeyLabel(stat.api_key_hash),
+      value: stat.total_cost,
+    }));
+  }, [apiKeyTrackingEnabled, apiKeyStats, getApiKeyLabel]);
 
-  // Transform API key balances to time-series-like data for bar chart
-  // Since we have daily, weekly, monthly usage from OpenRouter, we simulate periods
+  // Transform API key time-series data to bar chart format
+  // BarChartCard expects TimeSeriesDataPoint[] with 'model' field for the series key
   const apiKeyBarChartData = useMemo<TimeSeriesDataPoint[]>(() => {
-    if (!apiKeyTrackingEnabled || apiKeyBalances.length === 0) {
+    if (!apiKeyTrackingEnabled || apiKeyTimeSeries.length === 0) {
       return [];
     }
+    return apiKeyTimeSeries.map((point) => ({
+      period: point.period,
+      model: getApiKeyLabel(point.api_key_hash), // Using 'model' field for API key label (compatible with BarChartCard)
+      request_count: point.request_count,
+      total_tokens: point.total_tokens,
+      total_cost: point.total_cost,
+    }));
+  }, [apiKeyTrackingEnabled, apiKeyTimeSeries, getApiKeyLabel]);
 
-    const validBalances = apiKeyBalances.filter((balance) => !balance.error);
-
-    // Create time-series-like data based on aggregation selection
-    // Since OpenRouter provides daily/weekly/monthly totals, we create period-based data
-    const data: TimeSeriesDataPoint[] = [];
-
-    if (apiKeyAggregation === 'day') {
-      // Use daily usage - show as "Today"
-      const today = new Date().toISOString().split('T')[0];
-      validBalances.forEach((balance) => {
-        if (balance.usageDaily > 0) {
-          data.push({
-            period: today,
-            model: balance.label, // Using 'model' field for API key label (compatible with BarChartCard)
-            request_count: 0,
-            total_tokens: 0,
-            total_cost: balance.usageDaily,
-          });
-        }
-      });
-    } else if (apiKeyAggregation === 'week') {
-      // Use weekly usage - show as current week
-      const now = new Date();
-      const weekNum = Math.ceil((now.getDate() + new Date(now.getFullYear(), now.getMonth(), 1).getDay()) / 7);
-      const weekPeriod = `${now.getFullYear()}-${String(weekNum).padStart(2, '0')}`;
-      validBalances.forEach((balance) => {
-        if (balance.usageWeekly > 0) {
-          data.push({
-            period: weekPeriod,
-            model: balance.label,
-            request_count: 0,
-            total_tokens: 0,
-            total_cost: balance.usageWeekly,
-          });
-        }
-      });
-    } else {
-      // Use monthly usage - default/fallback
-      const now = new Date();
-      const monthPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      validBalances.forEach((balance) => {
-        if (balance.usageMonthly > 0) {
-          data.push({
-            period: monthPeriod,
-            model: balance.label,
-            request_count: 0,
-            total_tokens: 0,
-            total_cost: balance.usageMonthly,
-          });
-        }
-      });
-    }
-
-    return data;
-  }, [apiKeyTrackingEnabled, apiKeyBalances, apiKeyAggregation]);
-
-  const isLoading = loading || filtersLoading;
-  const isApiKeyChartsLoading = settingsLoading || apiKeysLoading;
+  // Unified loading state - all stats come from single fetch
+  const isLoading = statsLoading || filtersLoading;
+  // API key charts loading includes settings check (for tracking enabled status)
+  const isApiKeyChartsLoading = settingsLoading || statsLoading || filtersLoading;
 
   return (
     <div className="stats-page">
@@ -256,7 +267,7 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
           <button
             type="button"
             className="stats-page-retry-button neu-button"
-            onClick={fetchModelStats}
+            onClick={fetchUnifiedStats}
           >
             Retry
           </button>
@@ -309,7 +320,7 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
             title="Cost Over Time by Model"
             data={timeSeries}
             metric="total_cost"
-            loading={timeSeriesLoading || filtersLoading}
+            loading={isLoading}
             aggregation={aggregation}
             onAggregationChange={setAggregation}
           />
@@ -320,27 +331,37 @@ export function StatsPage({ filters, loading: filtersLoading = false }: StatsPag
               <h2 className="stats-page-section-title">API Key Statistics</h2>
               <div className="stats-page-charts stats-page-charts-api-keys">
                 <PieChartCard
+                  title="Requests by API Key"
+                  data={apiKeyRequestsData}
+                  loading={isApiKeyChartsLoading}
+                />
+                <PieChartCard
+                  title="Tokens by API Key"
+                  data={apiKeyTokensData}
+                  loading={isApiKeyChartsLoading}
+                />
+                <PieChartCard
                   title="Cost by API Key"
                   data={apiKeyCostData}
                   loading={isApiKeyChartsLoading}
                 />
-                <BarChartCard
-                  title="API Key Consumption"
-                  data={apiKeyBarChartData}
-                  metric="total_cost"
-                  loading={isApiKeyChartsLoading}
-                  aggregation={apiKeyAggregation}
-                  onAggregationChange={setApiKeyAggregation}
-                />
               </div>
+              <BarChartCard
+                title="Cost Over Time by API Key"
+                data={apiKeyBarChartData}
+                metric="total_cost"
+                loading={isApiKeyChartsLoading}
+                aggregation={apiKeyAggregation}
+                onAggregationChange={setApiKeyAggregation}
+              />
               {!isApiKeyChartsLoading && !hasApiKeyData && (
                 <div className="stats-page-empty-api-keys neu-card">
-                  <span className="stats-page-empty-icon">🔑</span>
+                  <span className="stats-page-empty-icon">i</span>
                   <p className="stats-page-empty-message">
-                    No API key data available.
+                    No API key data available for the selected filters.
                   </p>
                   <p className="stats-page-empty-hint">
-                    Add API keys in Settings to see consumption data here.
+                    Make API requests through the proxy with API key tracking enabled to see usage data here.
                   </p>
                 </div>
               )}

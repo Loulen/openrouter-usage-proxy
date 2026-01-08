@@ -190,6 +190,12 @@ export const WHERE_FROM = `timestamp >= ?`;
 export const WHERE_TO = `timestamp <= ?`;
 
 /**
+ * SQL WHERE clause fragment for API key hash filtering
+ * Uses exact match on api_key_hash
+ */
+export const WHERE_API_KEY_HASH = `api_key_hash = ?`;
+
+/**
  * SQL ORDER BY clause for logs
  * Most recent first
  */
@@ -236,13 +242,14 @@ export const GROUP_BY_MODEL_ORDER_BY_COST = `
  * Helper function to build a filtered logs query dynamically
  * Constructs WHERE clause based on which filter parameters are provided
  *
- * @param filters - Object containing optional model, from, and to filters
+ * @param filters - Object containing optional model, from, to, and apiKeyHash filters
  * @returns Object with sql query string and params array
  */
 export function buildFilteredLogsQuery(filters: {
   model?: string;
   from?: string;
   to?: string;
+  apiKeyHash?: string;
 }): { sql: string; params: (string | undefined)[] } {
   const conditions: string[] = [];
   const params: (string | undefined)[] = [];
@@ -260,6 +267,11 @@ export function buildFilteredLogsQuery(filters: {
   if (filters.to) {
     conditions.push(WHERE_TO);
     params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
   }
 
   let sql = SELECT_LOGS_BASE;
@@ -275,13 +287,14 @@ export function buildFilteredLogsQuery(filters: {
  * Helper function to build a filtered stats query dynamically
  * Constructs WHERE clause based on which filter parameters are provided
  *
- * @param filters - Object containing optional model, from, and to filters
+ * @param filters - Object containing optional model, from, to, and apiKeyHash filters
  * @returns Object with sql query string and params array
  */
 export function buildFilteredStatsQuery(filters: {
   model?: string;
   from?: string;
   to?: string;
+  apiKeyHash?: string;
 }): { sql: string; params: (string | undefined)[] } {
   const conditions: string[] = [];
   const params: (string | undefined)[] = [];
@@ -299,6 +312,11 @@ export function buildFilteredStatsQuery(filters: {
   if (filters.to) {
     conditions.push(WHERE_TO);
     params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
   }
 
   let sql = `
@@ -319,12 +337,13 @@ export function buildFilteredStatsQuery(filters: {
  * Helper function to build a filtered model stats query dynamically
  * Constructs WHERE clause for date range filtering on model statistics
  *
- * @param filters - Object containing optional from and to filters
+ * @param filters - Object containing optional from, to, and apiKeyHash filters
  * @returns Object with sql query string and params array
  */
 export function buildFilteredModelStatsQuery(filters: {
   from?: string;
   to?: string;
+  apiKeyHash?: string;
 }): { sql: string; params: (string | undefined)[] } {
   const conditions: string[] = [];
   const params: (string | undefined)[] = [];
@@ -337,6 +356,11 @@ export function buildFilteredModelStatsQuery(filters: {
   if (filters.to) {
     conditions.push(WHERE_TO);
     params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
   }
 
   let sql = SELECT_MODEL_STATS_BASE;
@@ -362,13 +386,14 @@ export const AGGREGATION_FORMATS: Record<string, string> = {
  * Helper function to build a time-series query with aggregation
  * Groups data by time period and model for line chart visualization
  *
- * @param filters - Object containing optional from, to, and aggregation filters
+ * @param filters - Object containing optional from, to, aggregation, and apiKeyHash filters
  * @returns Object with sql query string and params array
  */
 export function buildTimeSeriesQuery(filters: {
   from?: string;
   to?: string;
   aggregation?: 'hour' | 'day' | 'week';
+  apiKeyHash?: string;
 }): { sql: string; params: (string | undefined)[] } {
   const conditions: string[] = [];
   const params: (string | undefined)[] = [];
@@ -383,6 +408,11 @@ export function buildTimeSeriesQuery(filters: {
   if (filters.to) {
     conditions.push(WHERE_TO);
     params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
   }
 
   let sql = `
@@ -401,6 +431,296 @@ export function buildTimeSeriesQuery(filters: {
   sql += `
   GROUP BY period, model
   ORDER BY period ASC, model ASC`;
+
+  return { sql, params };
+}
+
+/**
+ * Helper function to build an API key statistics query
+ * Groups data by api_key_hash for pie chart visualization of API key usage distribution
+ * NULL api_key_hash values are coalesced to 'unknown' for backward compatibility
+ *
+ * @param filters - Object containing optional from, to, and apiKeyHash filters
+ * @returns Object with sql query string and params array
+ */
+export function buildApiKeyStatsQuery(filters: {
+  from?: string;
+  to?: string;
+  apiKeyHash?: string;
+}): { sql: string; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
+  }
+
+  let sql = `
+  SELECT
+    COALESCE(api_key_hash, 'unknown') as api_key_hash,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM usage_logs`;
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  sql += `
+  GROUP BY api_key_hash
+  ORDER BY total_cost DESC`;
+
+  return { sql, params };
+}
+
+/**
+ * Helper function to build an API key time-series query with aggregation
+ * Groups data by time period and api_key_hash for bar chart visualization
+ * NULL api_key_hash values are coalesced to 'unknown' for backward compatibility
+ *
+ * @param filters - Object containing optional from, to, aggregation, and apiKeyHash filters
+ * @returns Object with sql query string and params array
+ */
+export function buildApiKeyTimeSeriesQuery(filters: {
+  from?: string;
+  to?: string;
+  aggregation?: 'hour' | 'day' | 'week';
+  apiKeyHash?: string;
+}): { sql: string; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+  const aggregation = filters.aggregation || 'day';
+  const dateFormat = AGGREGATION_FORMATS[aggregation] || AGGREGATION_FORMATS.day;
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
+  }
+
+  let sql = `
+  SELECT
+    strftime('${dateFormat}', timestamp) as period,
+    COALESCE(api_key_hash, 'unknown') as api_key_hash,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM usage_logs`;
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  sql += `
+  GROUP BY period, api_key_hash
+  ORDER BY period ASC, api_key_hash ASC`;
+
+  return { sql, params };
+}
+
+/**
+ * Helper function to build WHERE clause conditions and parameters
+ * Shared utility for constructing filter conditions
+ *
+ * @param filters - Object containing optional model, from, to, and apiKeyHash filters
+ * @returns Object with conditions array and params array
+ */
+function buildFilterConditions(filters: {
+  model?: string;
+  from?: string;
+  to?: string;
+  apiKeyHash?: string;
+}): { conditions: string[]; params: (string | undefined)[] } {
+  const conditions: string[] = [];
+  const params: (string | undefined)[] = [];
+
+  if (filters.model) {
+    conditions.push(WHERE_MODEL);
+    params.push(filters.model);
+  }
+
+  if (filters.from) {
+    conditions.push(WHERE_FROM);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    conditions.push(WHERE_TO);
+    params.push(filters.to);
+  }
+
+  if (filters.apiKeyHash) {
+    conditions.push(WHERE_API_KEY_HASH);
+    params.push(filters.apiKeyHash);
+  }
+
+  return { conditions, params };
+}
+
+/**
+ * Unified statistics query result structure
+ * Contains JSON strings that need to be parsed
+ */
+export interface UnifiedStatsQueryResult {
+  stats: string;
+  modelStats: string;
+  timeSeries: string;
+  apiKeyStats: string;
+  apiKeyTimeSeries: string;
+}
+
+/**
+ * Helper function to build a unified statistics query using CTEs
+ * All statistics are computed from the same filtered dataset, guaranteeing consistency
+ *
+ * Uses SQLite Common Table Expressions (CTEs) to:
+ * 1. Define the filtered dataset once
+ * 2. Compute 5 different aggregations from the same filtered data
+ * 3. Return all results as JSON in a single row
+ *
+ * @param filters - Object containing optional model, from, to, apiKeyHash, aggregation, and apiKeyAggregation filters
+ * @returns Object with sql query string and params array
+ */
+export function buildUnifiedStatsQuery(filters: {
+  model?: string;
+  from?: string;
+  to?: string;
+  apiKeyHash?: string;
+  aggregation?: 'hour' | 'day' | 'week';
+  apiKeyAggregation?: 'hour' | 'day' | 'week';
+}): { sql: string; params: (string | undefined)[] } {
+  const { conditions, params } = buildFilterConditions(filters);
+  const aggregation = filters.aggregation || 'day';
+  const apiKeyAggregation = filters.apiKeyAggregation || 'day';
+  const dateFormat = AGGREGATION_FORMATS[aggregation] || AGGREGATION_FORMATS.day;
+  const apiKeyDateFormat = AGGREGATION_FORMATS[apiKeyAggregation] || AGGREGATION_FORMATS.day;
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const sql = `
+WITH filtered_logs AS (
+  SELECT * FROM usage_logs
+  ${whereClause}
+),
+
+-- Overall statistics
+overall_stats AS (
+  SELECT
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM filtered_logs
+),
+
+-- Model statistics
+model_stats AS (
+  SELECT
+    model,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM filtered_logs
+  GROUP BY model
+  ORDER BY total_cost DESC
+),
+
+-- Time-series data (by period and model)
+time_series AS (
+  SELECT
+    strftime('${dateFormat}', timestamp) as period,
+    model,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM filtered_logs
+  GROUP BY period, model
+  ORDER BY period ASC, model ASC
+),
+
+-- API key statistics
+api_key_stats AS (
+  SELECT
+    COALESCE(api_key_hash, 'unknown') as api_key_hash,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM filtered_logs
+  GROUP BY api_key_hash
+  ORDER BY total_cost DESC
+),
+
+-- API key time-series data
+api_key_time_series AS (
+  SELECT
+    strftime('${apiKeyDateFormat}', timestamp) as period,
+    COALESCE(api_key_hash, 'unknown') as api_key_hash,
+    COUNT(*) as request_count,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(cost), 0) as total_cost
+  FROM filtered_logs
+  GROUP BY period, api_key_hash
+  ORDER BY period ASC, api_key_hash ASC
+)
+
+-- Return all results as JSON
+SELECT
+  (SELECT json_object(
+    'request_count', request_count,
+    'total_tokens', total_tokens,
+    'total_cost', total_cost
+  ) FROM overall_stats) as stats,
+
+  (SELECT json_group_array(json_object(
+    'model', model,
+    'request_count', request_count,
+    'total_tokens', total_tokens,
+    'total_cost', total_cost
+  )) FROM model_stats) as modelStats,
+
+  (SELECT json_group_array(json_object(
+    'period', period,
+    'model', model,
+    'request_count', request_count,
+    'total_tokens', total_tokens,
+    'total_cost', total_cost
+  )) FROM time_series) as timeSeries,
+
+  (SELECT json_group_array(json_object(
+    'api_key_hash', api_key_hash,
+    'request_count', request_count,
+    'total_tokens', total_tokens,
+    'total_cost', total_cost
+  )) FROM api_key_stats) as apiKeyStats,
+
+  (SELECT json_group_array(json_object(
+    'period', period,
+    'api_key_hash', api_key_hash,
+    'request_count', request_count,
+    'total_tokens', total_tokens,
+    'total_cost', total_cost
+  )) FROM api_key_time_series) as apiKeyTimeSeries;
+`;
 
   return { sql, params };
 }

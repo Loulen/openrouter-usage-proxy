@@ -19,7 +19,11 @@ import {
   buildFilteredStatsQuery,
   buildFilteredModelStatsQuery,
   buildTimeSeriesQuery,
+  buildApiKeyStatsQuery,
+  buildApiKeyTimeSeriesQuery,
+  buildUnifiedStatsQuery,
 } from './schema.js';
+import type { UnifiedStatsQueryResult } from './schema.js';
 import type {
   UsageLog,
   UsageLogInput,
@@ -29,6 +33,10 @@ import type {
   ModelsResponse,
   TimeSeriesDataPoint,
   AggregationPeriod,
+  ApiKeyStats,
+  ApiKeyTimeSeriesDataPoint,
+  UnifiedStatsResponse,
+  UnifiedStatsFilterParams,
 } from '../types/index.js';
 
 /**
@@ -166,7 +174,7 @@ export function getModels(): ModelsResponse {
  */
 export function getFilteredLogs(filters: FilterParams = {}): UsageLog[] {
   // If no filters provided, use the prepared statement for better performance
-  if (!filters.model && !filters.from && !filters.to) {
+  if (!filters.model && !filters.from && !filters.to && !filters.apiKeyHash) {
     return selectAllStatement.all() as UsageLog[];
   }
 
@@ -186,7 +194,7 @@ export function getFilteredLogs(filters: FilterParams = {}): UsageLog[] {
  */
 export function getFilteredStats(filters: FilterParams = {}): UsageStats {
   // If no filters provided, use the prepared statement for better performance
-  if (!filters.model && !filters.from && !filters.to) {
+  if (!filters.model && !filters.from && !filters.to && !filters.apiKeyHash) {
     return selectStatsStatement.get() as UsageStats;
   }
 
@@ -199,12 +207,12 @@ export function getFilteredStats(filters: FilterParams = {}): UsageStats {
 /**
  * Get usage statistics grouped by model
  * Used for pie chart visualization showing model usage distribution
- * Supports optional date range filtering
+ * Supports optional date range and API key hash filtering
  *
- * @param filters - Optional filter parameters (from, to)
+ * @param filters - Optional filter parameters (from, to, apiKeyHash)
  * @returns Array of per-model statistics
  */
-export function getModelStats(filters: { from?: string; to?: string } = {}): ModelStats[] {
+export function getModelStats(filters: { from?: string; to?: string; apiKeyHash?: string } = {}): ModelStats[] {
   // Build dynamic query based on provided filters
   const { sql, params } = buildFilteredModelStatsQuery(filters);
   const statement = db.prepare(sql);
@@ -214,17 +222,120 @@ export function getModelStats(filters: { from?: string; to?: string } = {}): Mod
 /**
  * Get time-series usage data grouped by period and model
  * Used for line chart visualization showing consumption over time
- * Supports date range filtering and aggregation period selection
+ * Supports date range filtering, aggregation period selection, and API key hash filtering
  *
- * @param filters - Optional filter parameters (from, to, aggregation)
+ * @param filters - Optional filter parameters (from, to, aggregation, apiKeyHash)
  * @returns Array of time-series data points
  */
 export function getTimeSeries(filters: {
   from?: string;
   to?: string;
   aggregation?: AggregationPeriod;
+  apiKeyHash?: string;
 } = {}): TimeSeriesDataPoint[] {
   const { sql, params } = buildTimeSeriesQuery(filters);
   const statement = db.prepare(sql);
   return statement.all(...params) as TimeSeriesDataPoint[];
+}
+
+/**
+ * Get usage statistics grouped by API key
+ * Used for pie chart visualization showing API key usage distribution
+ * Supports optional date range and API key hash filtering
+ *
+ * @param filters - Optional filter parameters (from, to, apiKeyHash)
+ * @returns Array of per-API-key statistics
+ */
+export function getApiKeyStats(filters: { from?: string; to?: string; apiKeyHash?: string } = {}): ApiKeyStats[] {
+  const { sql, params } = buildApiKeyStatsQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.all(...params) as ApiKeyStats[];
+}
+
+/**
+ * Get time-series usage data grouped by period and API key
+ * Used for bar chart visualization showing API key consumption over time
+ * Supports date range filtering, aggregation period selection, and API key hash filtering
+ *
+ * @param filters - Optional filter parameters (from, to, aggregation, apiKeyHash)
+ * @returns Array of time-series data points grouped by API key
+ */
+export function getApiKeyTimeSeries(filters: {
+  from?: string;
+  to?: string;
+  aggregation?: 'hour' | 'day' | 'week';
+  apiKeyHash?: string;
+} = {}): ApiKeyTimeSeriesDataPoint[] {
+  const { sql, params } = buildApiKeyTimeSeriesQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.all(...params) as ApiKeyTimeSeriesDataPoint[];
+}
+
+/**
+ * Get unified statistics from the database using a CTE-based query
+ * All statistics are computed from the same filtered dataset, guaranteeing consistency
+ *
+ * This function:
+ * 1. Builds a unified SQL query using CTEs
+ * 2. Executes the query to get JSON-encoded results
+ * 3. Parses the JSON strings into typed objects
+ * 4. Returns a complete UnifiedStatsResponse
+ *
+ * @param filters - Filter parameters including model, date range, API key, and aggregation settings
+ * @returns Unified statistics response with all aggregations computed from the same filtered data
+ */
+export function getUnifiedStats(filters: UnifiedStatsFilterParams = {}): UnifiedStatsResponse {
+  const { sql, params } = buildUnifiedStatsQuery({
+    model: filters.model,
+    from: filters.from,
+    to: filters.to,
+    apiKeyHash: filters.apiKeyHash,
+    aggregation: filters.aggregation,
+    apiKeyAggregation: filters.apiKeyAggregation,
+  });
+
+  const statement = db.prepare(sql);
+  const result = statement.get(...params) as UnifiedStatsQueryResult | undefined;
+
+  // Handle empty result (no logs matching filters)
+  if (!result) {
+    return {
+      stats: { request_count: 0, total_tokens: 0, total_cost: 0 },
+      modelStats: [],
+      timeSeries: [],
+      apiKeyStats: [],
+      apiKeyTimeSeries: [],
+    };
+  }
+
+  // Parse JSON strings from SQL result
+  // Handle null/undefined values and empty JSON arrays safely
+  const parseJsonSafe = <T>(jsonString: string | null | undefined, fallback: T): T => {
+    if (!jsonString || jsonString === 'null') {
+      return fallback;
+    }
+    try {
+      return JSON.parse(jsonString) as T;
+    } catch {
+      return fallback;
+    }
+  };
+
+  // Parse stats - it's a single object, not an array
+  const statsData = parseJsonSafe<UsageStats | null>(result.stats, null);
+  const stats: UsageStats = statsData ?? { request_count: 0, total_tokens: 0, total_cost: 0 };
+
+  // Parse array results
+  const modelStats = parseJsonSafe<ModelStats[]>(result.modelStats, []);
+  const timeSeries = parseJsonSafe<TimeSeriesDataPoint[]>(result.timeSeries, []);
+  const apiKeyStats = parseJsonSafe<ApiKeyStats[]>(result.apiKeyStats, []);
+  const apiKeyTimeSeries = parseJsonSafe<ApiKeyTimeSeriesDataPoint[]>(result.apiKeyTimeSeries, []);
+
+  return {
+    stats,
+    modelStats,
+    timeSeries,
+    apiKeyStats,
+    apiKeyTimeSeries,
+  };
 }
