@@ -24,10 +24,17 @@ import type { Server } from 'http';
  * which works correctly when installed globally via npm.
  */
 function getPackageDir(): string {
-  // Get the directory of this file (dist/cli/ when compiled)
+  // Get the directory of this file
   const currentFileDir = path.dirname(fileURLToPath(import.meta.url));
-  // Go up two levels: dist/cli -> dist -> package root
-  return path.dirname(path.dirname(currentFileDir));
+
+  // Detect if running from source (cli/) or compiled (dist/cli/)
+  if (currentFileDir.endsWith('dist/cli') || currentFileDir.endsWith('dist\\cli')) {
+    // Compiled: dist/cli -> dist -> package root (2 levels up)
+    return path.dirname(path.dirname(currentFileDir));
+  } else {
+    // Source (tsx dev mode): cli -> package root (1 level up)
+    return path.dirname(currentFileDir);
+  }
 }
 
 /**
