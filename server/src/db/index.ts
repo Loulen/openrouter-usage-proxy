@@ -19,6 +19,8 @@ import {
   buildFilteredStatsQuery,
   buildFilteredModelStatsQuery,
   buildTimeSeriesQuery,
+  buildApiKeyStatsQuery,
+  buildApiKeyTimeSeriesQuery,
 } from './schema.js';
 import type {
   UsageLog,
@@ -29,6 +31,8 @@ import type {
   ModelsResponse,
   TimeSeriesDataPoint,
   AggregationPeriod,
+  ApiKeyStats,
+  ApiKeyTimeSeriesDataPoint,
 } from '../types/index.js';
 
 /**
@@ -227,4 +231,36 @@ export function getTimeSeries(filters: {
   const { sql, params } = buildTimeSeriesQuery(filters);
   const statement = db.prepare(sql);
   return statement.all(...params) as TimeSeriesDataPoint[];
+}
+
+/**
+ * Get usage statistics grouped by API key
+ * Used for pie chart visualization showing API key usage distribution
+ * Supports optional date range filtering
+ *
+ * @param filters - Optional filter parameters (from, to)
+ * @returns Array of per-API-key statistics
+ */
+export function getApiKeyStats(filters: { from?: string; to?: string } = {}): ApiKeyStats[] {
+  const { sql, params } = buildApiKeyStatsQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.all(...params) as ApiKeyStats[];
+}
+
+/**
+ * Get time-series usage data grouped by period and API key
+ * Used for bar chart visualization showing API key consumption over time
+ * Supports date range filtering and aggregation period selection
+ *
+ * @param filters - Optional filter parameters (from, to, aggregation)
+ * @returns Array of time-series data points grouped by API key
+ */
+export function getApiKeyTimeSeries(filters: {
+  from?: string;
+  to?: string;
+  aggregation?: 'hour' | 'day' | 'week';
+} = {}): ApiKeyTimeSeriesDataPoint[] {
+  const { sql, params } = buildApiKeyTimeSeriesQuery(filters);
+  const statement = db.prepare(sql);
+  return statement.all(...params) as ApiKeyTimeSeriesDataPoint[];
 }
