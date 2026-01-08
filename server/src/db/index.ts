@@ -203,12 +203,12 @@ export function getFilteredStats(filters: FilterParams = {}): UsageStats {
 /**
  * Get usage statistics grouped by model
  * Used for pie chart visualization showing model usage distribution
- * Supports optional date range filtering
+ * Supports optional date range and API key hash filtering
  *
- * @param filters - Optional filter parameters (from, to)
+ * @param filters - Optional filter parameters (from, to, apiKeyHash)
  * @returns Array of per-model statistics
  */
-export function getModelStats(filters: { from?: string; to?: string } = {}): ModelStats[] {
+export function getModelStats(filters: { from?: string; to?: string; apiKeyHash?: string } = {}): ModelStats[] {
   // Build dynamic query based on provided filters
   const { sql, params } = buildFilteredModelStatsQuery(filters);
   const statement = db.prepare(sql);
@@ -218,15 +218,16 @@ export function getModelStats(filters: { from?: string; to?: string } = {}): Mod
 /**
  * Get time-series usage data grouped by period and model
  * Used for line chart visualization showing consumption over time
- * Supports date range filtering and aggregation period selection
+ * Supports date range filtering, aggregation period selection, and API key hash filtering
  *
- * @param filters - Optional filter parameters (from, to, aggregation)
+ * @param filters - Optional filter parameters (from, to, aggregation, apiKeyHash)
  * @returns Array of time-series data points
  */
 export function getTimeSeries(filters: {
   from?: string;
   to?: string;
   aggregation?: AggregationPeriod;
+  apiKeyHash?: string;
 } = {}): TimeSeriesDataPoint[] {
   const { sql, params } = buildTimeSeriesQuery(filters);
   const statement = db.prepare(sql);

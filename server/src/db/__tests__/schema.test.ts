@@ -5,17 +5,21 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
+// Import directly from .ts file to ensure we get the latest version
+// This avoids any ESM resolution caching issues with .js extensions
 import {
   buildFilteredLogsQuery,
   buildFilteredStatsQuery,
   buildFilteredModelStatsQuery,
   buildTimeSeriesQuery,
+  buildApiKeyStatsQuery,
+  buildApiKeyTimeSeriesQuery,
   AGGREGATION_FORMATS,
   initializeSchema,
   CREATE_USAGE_LOGS_TABLE,
   CREATE_TIMESTAMP_INDEX,
   CREATE_MODEL_INDEX,
-} from '../schema.js';
+} from '../schema.ts';
 
 // Note: migrateApiKeyHash and CREATE_API_KEY_HASH_INDEX are tested via
 // the createTestDb function in test-utils which creates the full schema
@@ -311,6 +315,187 @@ describe('Query Builders', () => {
       expect(params[0]).toBe('model-a');
       expect(params[1]).toBe('date-from');
       expect(params[2]).toBe('date-to');
+    });
+  });
+
+  describe('buildApiKeyStatsQuery', () => {
+    it('should build API key stats query without filters', () => {
+      const { sql, params } = buildApiKeyStatsQuery({});
+
+      expect(sql).toContain('SELECT');
+      expect(sql).toContain("COALESCE(api_key_hash, 'unknown') as api_key_hash");
+      expect(sql).toContain('COUNT(*) as request_count');
+      expect(sql).toContain('COALESCE(SUM(total_tokens), 0)');
+      expect(sql).toContain('COALESCE(SUM(cost), 0)');
+      expect(sql).toContain('GROUP BY api_key_hash');
+      expect(sql).toContain('ORDER BY total_cost DESC');
+      expect(sql).not.toContain('WHERE');
+      expect(params).toHaveLength(0);
+    });
+
+    it('should add from date filter for API key stats', () => {
+      const fromDate = '2024-01-01T00:00:00Z';
+      const { sql, params } = buildApiKeyStatsQuery({ from: fromDate });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('timestamp >= ?');
+      expect(params).toEqual([fromDate]);
+    });
+
+    it('should add to date filter for API key stats', () => {
+      const toDate = '2024-12-31T23:59:59Z';
+      const { sql, params } = buildApiKeyStatsQuery({ to: toDate });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('timestamp <= ?');
+      expect(params).toEqual([toDate]);
+    });
+
+    it('should combine from and to filters with AND', () => {
+      const filters = {
+        from: '2024-01-01T00:00:00Z',
+        to: '2024-12-31T23:59:59Z',
+      };
+      const { sql, params } = buildApiKeyStatsQuery(filters);
+
+      expect(sql).toContain(' AND ');
+      expect(params).toEqual([filters.from, filters.to]);
+    });
+
+    it('should handle NULL api_key_hash with COALESCE to unknown', () => {
+      const { sql } = buildApiKeyStatsQuery({});
+
+      // The query should use COALESCE to convert NULL to 'unknown'
+      expect(sql).toContain("COALESCE(api_key_hash, 'unknown')");
+    });
+
+    it('should always include GROUP BY api_key_hash', () => {
+      const queries = [
+        buildApiKeyStatsQuery({}),
+        buildApiKeyStatsQuery({ from: '2024-01-01' }),
+        buildApiKeyStatsQuery({ to: '2024-12-31' }),
+      ];
+
+      queries.forEach(({ sql }) => {
+        expect(sql).toContain('GROUP BY api_key_hash');
+      });
+    });
+  });
+
+  describe('buildApiKeyTimeSeriesQuery', () => {
+    it('should build API key time-series query with default day aggregation', () => {
+      const { sql, params } = buildApiKeyTimeSeriesQuery({});
+
+      expect(sql).toContain('strftime');
+      expect(sql).toContain(AGGREGATION_FORMATS.day);
+      expect(sql).toContain('as period');
+      expect(sql).toContain("COALESCE(api_key_hash, 'unknown') as api_key_hash");
+      expect(sql).toContain('GROUP BY period, api_key_hash');
+      expect(sql).toContain('ORDER BY period ASC, api_key_hash ASC');
+      expect(params).toHaveLength(0);
+    });
+
+    it('should use hour aggregation format when specified', () => {
+      const { sql } = buildApiKeyTimeSeriesQuery({ aggregation: 'hour' });
+
+      expect(sql).toContain(AGGREGATION_FORMATS.hour);
+    });
+
+    it('should use day aggregation format when specified', () => {
+      const { sql } = buildApiKeyTimeSeriesQuery({ aggregation: 'day' });
+
+      expect(sql).toContain(AGGREGATION_FORMATS.day);
+    });
+
+    it('should use week aggregation format when specified', () => {
+      const { sql } = buildApiKeyTimeSeriesQuery({ aggregation: 'week' });
+
+      expect(sql).toContain(AGGREGATION_FORMATS.week);
+    });
+
+    it('should add date range filters', () => {
+      const filters = {
+        from: '2024-01-01T00:00:00Z',
+        to: '2024-12-31T23:59:59Z',
+        aggregation: 'day' as const,
+      };
+      const { sql, params } = buildApiKeyTimeSeriesQuery(filters);
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('timestamp >= ?');
+      expect(sql).toContain('timestamp <= ?');
+      expect(params).toEqual([filters.from, filters.to]);
+    });
+
+    it('should include all required aggregation columns', () => {
+      const { sql } = buildApiKeyTimeSeriesQuery({});
+
+      expect(sql).toContain('request_count');
+      expect(sql).toContain('total_tokens');
+      expect(sql).toContain('total_cost');
+    });
+
+    it('should handle empty filters with default aggregation', () => {
+      const { sql, params } = buildApiKeyTimeSeriesQuery({});
+
+      expect(sql).not.toContain('WHERE');
+      expect(params).toHaveLength(0);
+      expect(sql).toContain(AGGREGATION_FORMATS.day);
+    });
+
+    it('should handle NULL api_key_hash with COALESCE to unknown', () => {
+      const { sql } = buildApiKeyTimeSeriesQuery({});
+
+      // The query should use COALESCE to convert NULL to 'unknown'
+      expect(sql).toContain("COALESCE(api_key_hash, 'unknown')");
+    });
+  });
+
+  describe('apiKeyHash filter in existing query builders', () => {
+    it('buildFilteredLogsQuery should support apiKeyHash filter', () => {
+      const { sql, params } = buildFilteredLogsQuery({ apiKeyHash: 'hash_abc123' });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(params).toEqual(['hash_abc123']);
+    });
+
+    it('buildFilteredLogsQuery should combine apiKeyHash with other filters', () => {
+      const filters = {
+        model: 'openai/gpt-4',
+        from: '2024-01-01T00:00:00Z',
+        apiKeyHash: 'hash_abc123',
+      };
+      const { sql, params } = buildFilteredLogsQuery(filters);
+
+      expect(sql).toContain('model = ?');
+      expect(sql).toContain('timestamp >= ?');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(params).toEqual([filters.model, filters.from, filters.apiKeyHash]);
+    });
+
+    it('buildFilteredStatsQuery should support apiKeyHash filter', () => {
+      const { sql, params } = buildFilteredStatsQuery({ apiKeyHash: 'hash_abc123' });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(params).toEqual(['hash_abc123']);
+    });
+
+    it('buildFilteredModelStatsQuery should support apiKeyHash filter', () => {
+      const { sql, params } = buildFilteredModelStatsQuery({ apiKeyHash: 'hash_abc123' });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(params).toEqual(['hash_abc123']);
+    });
+
+    it('buildTimeSeriesQuery should support apiKeyHash filter', () => {
+      const { sql, params } = buildTimeSeriesQuery({ apiKeyHash: 'hash_abc123' });
+
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('api_key_hash = ?');
+      expect(params).toEqual(['hash_abc123']);
     });
   });
 });
