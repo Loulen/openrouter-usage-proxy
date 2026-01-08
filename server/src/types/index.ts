@@ -167,6 +167,10 @@ export interface FilterParams {
   from?: string;
   /** Filter logs to this date (ISO 8601) */
   to?: string;
+  /** API key UUID from client filter selection */
+  apiKeyId?: string;
+  /** Internal: SHA-256 hashed key for database query (derived from apiKeyId lookup) */
+  apiKeyHash?: string;
 }
 
 /**
@@ -220,4 +224,36 @@ export interface TimeSeriesDataPoint {
 export interface TimeSeriesFilterParams extends FilterParams {
   /** Aggregation period (hour, day, week) */
   aggregation?: AggregationPeriod;
+}
+
+/**
+ * Statistics breakdown for a single API key
+ * Used for pie chart visualization of API key usage distribution
+ */
+export interface ApiKeyStats {
+  /** SHA-256 hash of the API key, or 'unknown' for NULL values */
+  api_key_hash: string;
+  /** Number of requests made with this API key */
+  request_count: number;
+  /** Total tokens used by this API key */
+  total_tokens: number;
+  /** Total cost in USD for this API key */
+  total_cost: number;
+}
+
+/**
+ * Time-series data point for API key consumption over time
+ * Used for bar chart visualization of API key usage over time
+ */
+export interface ApiKeyTimeSeriesDataPoint {
+  /** Period start timestamp (ISO 8601 or formatted date string) */
+  period: string;
+  /** SHA-256 hash of the API key, or 'unknown' for NULL values */
+  api_key_hash: string;
+  /** Number of requests in this period for this API key */
+  request_count: number;
+  /** Total tokens used in this period for this API key */
+  total_tokens: number;
+  /** Total cost in USD for this period for this API key */
+  total_cost: number;
 }
