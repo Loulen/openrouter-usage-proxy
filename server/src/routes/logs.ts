@@ -10,7 +10,11 @@ import {
   getFilteredStats,
   getModelStats,
   getTimeSeries,
+  getApiKeyStats,
+  getApiKeyTimeSeries,
 } from '../db/index.js';
+import { getApiKeyById } from '../db/settings.js';
+import { hashApiKey } from '../middleware/proxy.js';
 import type {
   UsageLog,
   UsageStats,
@@ -20,6 +24,8 @@ import type {
   ModelsResponse,
   TimeSeriesDataPoint,
   AggregationPeriod,
+  ApiKeyStats,
+  ApiKeyTimeSeriesDataPoint,
 } from '../types/index.js';
 
 /**
@@ -44,7 +50,39 @@ function parseFilterParams(query: Request['query']): FilterParams {
     filters.to = query.to.trim();
   }
 
+  if (typeof query.apiKeyId === 'string' && query.apiKeyId.trim()) {
+    filters.apiKeyId = query.apiKeyId.trim();
+  }
+
   return filters;
+}
+
+/**
+ * Convert apiKeyId filter to apiKeyHash for database queries
+ * Looks up the API key by ID, hashes it, and sets apiKeyHash on the filters
+ *
+ * @param filters - FilterParams object that may contain apiKeyId
+ * @returns Object with resolved filters and optional error message
+ */
+function resolveApiKeyFilter(filters: FilterParams): { filters: FilterParams; error?: string } {
+  if (!filters.apiKeyId) {
+    return { filters };
+  }
+
+  const apiKeyConfig = getApiKeyById(filters.apiKeyId);
+  if (!apiKeyConfig) {
+    return { filters, error: 'API key not found' };
+  }
+
+  // Create a new filters object with apiKeyHash instead of apiKeyId
+  const resolvedFilters: FilterParams = {
+    ...filters,
+    apiKeyHash: hashApiKey(apiKeyConfig.key),
+  };
+  // Remove apiKeyId as it's not needed for database queries
+  delete resolvedFilters.apiKeyId;
+
+  return { filters: resolvedFilters };
 }
 
 /**
@@ -59,12 +97,24 @@ const router = Router();
  *   - model: Filter by model name (exact match)
  *   - from: Filter logs from this date (ISO 8601)
  *   - to: Filter logs to this date (ISO 8601)
+ *   - apiKeyId: Filter by API key ID (UUID, resolved to hash internally)
  *
  * @returns Array of UsageLog objects
  */
 router.get('/', (req: Request, res: Response<UsageLog[] | ApiErrorResponse>, next: NextFunction) => {
   try {
-    const filters = parseFilterParams(req.query);
+    const parsedFilters = parseFilterParams(req.query);
+    const { filters, error } = resolveApiKeyFilter(parsedFilters);
+
+    if (error) {
+      res.status(400).json({
+        error: true,
+        message: error,
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
+
     const logs = getFilteredLogs(filters);
     res.json(logs);
   } catch (err) {
@@ -79,12 +129,24 @@ router.get('/', (req: Request, res: Response<UsageLog[] | ApiErrorResponse>, nex
  *   - model: Filter by model name (exact match)
  *   - from: Filter stats from this date (ISO 8601)
  *   - to: Filter stats to this date (ISO 8601)
+ *   - apiKeyId: Filter by API key ID (UUID, resolved to hash internally)
  *
  * @returns UsageStats object with request_count, total_tokens, total_cost
  */
 router.get('/stats', (req: Request, res: Response<UsageStats | ApiErrorResponse>, next: NextFunction) => {
   try {
-    const filters = parseFilterParams(req.query);
+    const parsedFilters = parseFilterParams(req.query);
+    const { filters, error } = resolveApiKeyFilter(parsedFilters);
+
+    if (error) {
+      res.status(400).json({
+        error: true,
+        message: error,
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
+
     const stats = getFilteredStats(filters);
     res.json(stats);
   } catch (err) {
@@ -115,14 +177,26 @@ router.get('/models', (req: Request, res: Response<ModelsResponse | ApiErrorResp
  * Supports optional query parameters for date filtering:
  *   - from: Filter stats from this date (ISO 8601)
  *   - to: Filter stats to this date (ISO 8601)
+ *   - apiKeyId: Filter by API key ID (UUID, resolved to hash internally)
  *
  * @returns Array of ModelStats objects with per-model breakdown
  */
 router.get('/model-stats', (req: Request, res: Response<ModelStats[] | ApiErrorResponse>, next: NextFunction) => {
   try {
-    const filters = parseFilterParams(req.query);
+    const parsedFilters = parseFilterParams(req.query);
+    const { filters, error } = resolveApiKeyFilter(parsedFilters);
+
+    if (error) {
+      res.status(400).json({
+        error: true,
+        message: error,
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
+
     // model-stats doesn't use model filter (it returns all models)
-    const modelStats = getModelStats({ from: filters.from, to: filters.to });
+    const modelStats = getModelStats({ from: filters.from, to: filters.to, apiKeyHash: filters.apiKeyHash });
     res.json(modelStats);
   } catch (err) {
     next(err);
@@ -137,12 +211,23 @@ router.get('/model-stats', (req: Request, res: Response<ModelStats[] | ApiErrorR
  *   - from: Filter stats from this date (ISO 8601)
  *   - to: Filter stats to this date (ISO 8601)
  *   - aggregation: Time period aggregation (hour, day, week) - defaults to 'day'
+ *   - apiKeyId: Filter by API key ID (UUID, resolved to hash internally)
  *
  * @returns Array of TimeSeriesDataPoint objects with period, model, and stats
  */
 router.get('/time-series', (req: Request, res: Response<TimeSeriesDataPoint[] | ApiErrorResponse>, next: NextFunction) => {
   try {
-    const filters = parseFilterParams(req.query);
+    const parsedFilters = parseFilterParams(req.query);
+    const { filters, error } = resolveApiKeyFilter(parsedFilters);
+
+    if (error) {
+      res.status(400).json({
+        error: true,
+        message: error,
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
 
     // Parse aggregation parameter with validation
     let aggregation: AggregationPeriod = 'day';
@@ -157,8 +242,64 @@ router.get('/time-series', (req: Request, res: Response<TimeSeriesDataPoint[] | 
       from: filters.from,
       to: filters.to,
       aggregation,
+      apiKeyHash: filters.apiKeyHash,
     });
     res.json(timeSeries);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/logs/api-key-stats
+ * Returns usage statistics grouped by API key
+ * Used for pie chart visualization of API key usage distribution
+ * Supports optional query parameters for date filtering:
+ *   - from: Filter stats from this date (ISO 8601)
+ *   - to: Filter stats to this date (ISO 8601)
+ *
+ * @returns Array of ApiKeyStats objects with per-API-key breakdown
+ */
+router.get('/api-key-stats', (req: Request, res: Response<ApiKeyStats[] | ApiErrorResponse>, next: NextFunction) => {
+  try {
+    const filters = parseFilterParams(req.query);
+    const apiKeyStats = getApiKeyStats({ from: filters.from, to: filters.to });
+    res.json(apiKeyStats);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/logs/api-key-time-series
+ * Returns usage statistics grouped by time period and API key
+ * Used for bar chart visualization of API key consumption over time
+ * Supports optional query parameters:
+ *   - from: Filter stats from this date (ISO 8601)
+ *   - to: Filter stats to this date (ISO 8601)
+ *   - aggregation: Time period aggregation (hour, day, week) - defaults to 'day'
+ *
+ * @returns Array of ApiKeyTimeSeriesDataPoint objects with period, api_key_hash, and stats
+ */
+router.get('/api-key-time-series', (req: Request, res: Response<ApiKeyTimeSeriesDataPoint[] | ApiErrorResponse>, next: NextFunction) => {
+  try {
+    const filters = parseFilterParams(req.query);
+
+    // Parse aggregation parameter with validation
+    let aggregation: AggregationPeriod = 'day';
+    if (typeof req.query.aggregation === 'string') {
+      const agg = req.query.aggregation.trim().toLowerCase();
+      if (agg === 'hour' || agg === 'day' || agg === 'week') {
+        aggregation = agg;
+      }
+    }
+
+    const apiKeyTimeSeries = getApiKeyTimeSeries({
+      from: filters.from,
+      to: filters.to,
+      aggregation,
+    });
+    res.json(apiKeyTimeSeries);
   } catch (err) {
     next(err);
   }
