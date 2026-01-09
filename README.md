@@ -2,6 +2,8 @@
 
 A transparent middleware proxy that intercepts API calls to OpenRouter, logs usage information (model, tokens, costs, API keys), and displays analytics through a web dashboard.
 
+<img width="1227" height="946" alt="image" src="https://github.com/user-attachments/assets/42a5c2c2-5bdc-4d2c-9027-96b5db0705fe" />
+
 ## Overview
 
 This tool acts as a **transparent proxy** between clients and OpenRouter's API. It passes through client requests unchanged while capturing request/response data for usage tracking, including per-API-key analytics. The proxy does NOT require or inject any API key - clients provide their own.
